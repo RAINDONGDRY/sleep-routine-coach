@@ -1,18 +1,24 @@
 # Interaction protocol
 
+## Language and comprehension
+
+Use the language the user is currently using. If that is uncertain, ask one language-choice question before onboarding. The Chinese text below is an example for a Chinese conversation, not a fixed language requirement. Translate each question, option, consent statement, event confirmation, correction, deletion warning, and reminder control into the user's chosen language without changing its meaning.
+
+Do not persist data or authorize scheduling when the user may not understand the consent request. Ask one clarification in their language and fail closed if clear consent is still absent. Confirm each recorded event or correction in the same language so the user can immediately cancel or amend a mistaken interpretation.
+
 ## Onboarding
 
 Ask exactly one question per turn, in this order unless the user has already supplied an answer:
 
-1. “你所在的时区是？” Resolve to an IANA timezone such as `Asia/Shanghai` or `America/Toronto`.
-2. “你希望通常几点起床？”
-3. “你希望大概几点睡，或给自己留多长的睡眠窗口？”
-4. “工作日和周末的时间会不同吗？” If yes, collect the weekend values one at a time.
-5. “你是否经常因为起夜影响睡眠？”
-6. “要不要启用晚间大量饮水收尾提醒？” Explain the optional, non-dehydrating boundary if relevant.
-7. “你希望提醒强度是极少、温和，还是标准？”
-8. “允许我主动发消息的时间范围是什么？”
-9. “你是否明确同意把这些设置和之后的睡眠记录保存在本地？”
+1. Timezone — e.g. “你所在的时区是？” / “What timezone are you in?” Resolve to an IANA timezone such as `Asia/Shanghai` or `America/Toronto`.
+2. Target wake time — “你希望通常几点起床？” / “What time would you usually like to wake up?”
+3. Approximate sleep target or window — “你希望大概几点睡，或给自己留多长的睡眠窗口？” / “Roughly when would you like to sleep, or what sleep window would you like?”
+4. Weekday/weekend difference — “工作日和周末的时间会不同吗？” / “Should weekdays and weekends differ?” If yes, collect weekend values one at a time.
+5. Nocturia concern — “你是否经常因为起夜影响睡眠？” / “Does waking to use the bathroom often affect your sleep?”
+6. Optional hydration wrap-up — “要不要启用晚间大量饮水收尾提醒？” / “Would you like an optional evening reminder to avoid one large drink near bedtime?” Explain the optional, non-dehydrating boundary if relevant.
+7. Reminder intensity — “你希望提醒强度是极少、温和，还是标准？” / “Would you prefer minimal, gentle, or standard reminders?”
+8. Allowed proactive hours — “允许我主动发消息的时间范围是什么？” / “During what hours may I send proactive messages?”
+9. Local-storage consent — “你是否明确同意把这些设置和之后的睡眠记录保存在本地？” / “Do you explicitly agree to save these settings and later sleep records locally?”
 
 Do not persist partial answers before question 9 receives an explicit yes. Hold them only in the current conversation. If consent is declined, do not call a writing command.
 
@@ -38,7 +44,7 @@ Recognize direct or natural equivalents such as “晚安”, “睡觉了”, �
 
 1. Record the current offset-aware time as `goodnight_at`.
 2. Describe it only as “准备入睡时间” or “准备睡觉时间”.
-3. Reply once, for example: “晚安 🌙 已记下你在 23:06 准备入睡。我会保持安静，明早见。”
+3. Reply once in the user's language, for example: “晚安 🌙 已记下你在 23:06 准备入睡。我会保持安静，明早见。” / “Good night 🌙 I recorded 23:06 as the time you started preparing to sleep. I’ll stay quiet until morning.”
 4. Enter `night_quiet`; ask no follow-up question.
 5. Do not send ordinary reminders before the authorized wake time unless the user messages again.
 
@@ -54,11 +60,11 @@ Recognize “早安”, “醒了”, “起来了”, “good morning”, or an
 2. Ask no more than two short questions in total.
 3. Prefer button-like options or answers that can be one token.
 
-Default rotation:
+Default rotation (localize labels and preserve the stored categories):
 
-- First: “昨晚大概多久睡着？” Options: `很快` (store category `quick`, numeric null), `约半小时` (category `about_30`, numeric 30), `超过一小时` (category `over_60`, numeric null unless the user volunteers an estimate), `不记得` (category `unknown`, numeric null).
-- Second: “昨晚起夜几次？” Options: `0`, `1`, `2`, `3 次以上`.
-- On alternating days, replace the second question with “醒来精神怎么样？” Options: `1`–`5` or `不想答`.
+- First: “昨晚大概多久睡着？” / “About how long did it take to fall asleep?” Options: `很快` / `quickly` (store category `quick`, numeric null), `约半小时` / `about 30 minutes` (category `about_30`, numeric 30), `超过一小时` / `over an hour` (category `over_60`, numeric null unless the user volunteers an estimate), `不记得` / `not sure` (category `unknown`, numeric null).
+- Second: “昨晚起夜几次？” / “How many times did you get up during the night?” Options: `0`, `1`, `2`, `3 次以上` / `3+`.
+- On alternating days, replace the second question with “醒来精神怎么样？” / “How rested do you feel?” Options: `1`–`5` or `不想答` / `skip`.
 
 For `3 次以上`, store category `3_plus` and leave the exact count null unless the user provides it. Never turn “很快”, “超过一小时”, or `3 次以上` into a precise number without an explicit report. Never ask more questions merely to complete missing fields.
 
@@ -78,7 +84,7 @@ Corrections must append an audit event containing old value, new value, timestam
 
 ## Reminder delivery
 
-Each reminder offers context-appropriate actions: `完成`, `推迟`, `跳过`, `关闭此提醒`.
+Each reminder offers context-appropriate localized actions: `完成` / `Done`, `推迟` / `Snooze`, `跳过` / `Skip`, `关闭此提醒` / `Turn off this reminder`.
 
 - Send at most once per stage while `awaiting_reply` is true.
 - Do not chase an unanswered reminder.

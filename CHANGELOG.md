@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.2] - 2026-07-29
+
+ClawHub review hardening:
+
+- Declared Python and optional data-directory requirements using official `metadata.openclaw` fields.
+- Added portable tool-access metadata without preauthorizing scheduler changes.
+- Added language selection, localized consent, and fail-closed comprehension rules.
+- Added bilingual examples while preserving the same stored categories and behavior.
+
 ## [0.1.1] - 2026-07-29
 
 Security hardening:

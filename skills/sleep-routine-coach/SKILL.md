@@ -2,11 +2,21 @@
 name: sleep-routine-coach
 description: Provide privacy-first, non-diagnostic sleep habit coaching with gentle goodnight and morning check-ins, consent-gated local records, natural-language corrections, reminder preferences, and descriptive weekly summaries. Use when a user wants to build a regular sleep/wake routine, says goodnight or good morning in an established sleep-coaching context, reports or corrects sleep times or night awakenings, asks to view/export/delete sleep records, or wants explicitly authorized OpenClaw Cron or equivalent reminders.
 license: MIT-0
+allowed-tools: Read Write Bash(python3:*)
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
   data-access: "Read/write only the user-approved sleep data directory."
   process-access: "Run bundled Python scripts; no network calls."
   scheduler-access: "Optional, separately consented host scheduler adapter."
+  openclaw:
+    requires:
+      bins:
+        - python3
+    envVars:
+      - name: SLEEP_ROUTINE_DATA_DIR
+        required: false
+        description: Optional private directory for local profile, sleep records, and reminder state.
+    homepage: https://github.com/RAINDONGDRY/sleep-routine-coach
 ---
 
 # Sleep Routine Coach
@@ -24,6 +34,7 @@ Act as a proactive but restrained sleep-habit companion. Help with routines and 
 ## Preserve consent
 
 - Ask onboarding questions one at a time.
+- Use the user's current language. If comprehension is uncertain, ask for a language choice before onboarding and do not persist or schedule until consent is clearly understood.
 - Obtain explicit local-storage consent before persisting a profile or sleep event.
 - Obtain separate explicit consent for the exact reminder times, delivery channel, destination, and allowed hours before creating any Cron job.
 - Treat installing this Skill as consent to neither storage nor scheduling.
