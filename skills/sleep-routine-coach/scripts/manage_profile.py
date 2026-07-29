@@ -44,6 +44,7 @@ REMINDER_TYPES = {
     "wind_down",
     "hydration_wrap",
     "goodnight_invite",
+    "sleep_time",
     "wake_target",
     "morning_checkin",
     "weekly_summary",
@@ -212,6 +213,15 @@ def cmd_stop(args: argparse.Namespace) -> None:
     profile["updated_at"] = iso_now()
     profile.setdefault("audit_history", []).append({"at": profile["updated_at"], "action": "collection_stopped"})
     save_json(args.data_dir / "profile.json", profile)
+    shift_path = args.data_dir / "sleep-shift-plan.json"
+    shift = json.loads(shift_path.read_text(encoding="utf-8")) if shift_path.exists() else {}
+    if shift.get("status") == "active":
+        shift["status"] = "paused"
+        shift["updated_at"] = iso_now()
+        shift.setdefault("audit_history", []).append(
+            {"at": shift["updated_at"], "action": "plan_paused_collection_stopped"}
+        )
+        save_json(shift_path, shift)
     print_json({"stopped": True, "note": "Disable/remove existing external Cron jobs separately"})
 
 
@@ -224,6 +234,11 @@ def cmd_export(args: argparse.Namespace) -> None:
         else [],
         "reminders": json.loads((args.data_dir / "reminders.json").read_text(encoding="utf-8"))
         if (args.data_dir / "reminders.json").exists()
+        else {},
+        "sleep_shift_plan": json.loads(
+            (args.data_dir / "sleep-shift-plan.json").read_text(encoding="utf-8")
+        )
+        if (args.data_dir / "sleep-shift-plan.json").exists()
         else {},
     }
     if args.output:

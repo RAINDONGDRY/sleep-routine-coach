@@ -32,6 +32,25 @@ When enabled, evaluate it each local day using the weekday/weekend profile, allo
 
 Goodnight and morning events are the lightweight measurement loop. Use them to collect reported timing and optional short follow-up data for corrections, metrics, and descriptive weekly trends. Do not wait for a goodnight message before offering an already authorized wind-down reminder, and do not describe goodnight/morning logging as the whole coaching service.
 
+## Gradual sleep-time adjustment
+
+When a user wants to move a late or early routine, ask one question per turn:
+
+1. Current typical sleep time.
+2. Current typical wake time.
+3. Desired sleep time.
+4. Confirm the derived wake time that preserves the same sleep opportunity.
+5. Ask whether to use the gentle default (15 minutes, hold two nights) or 30-minute stages.
+6. Show the complete preview and estimated minimum duration.
+7. Ask for explicit plan confirmation before writing `sleep-shift-plan.json`.
+8. Separately preview and confirm `wind_down`, `sleep_time`, wake, and check-in scheduler changes.
+
+Example: a 03:00–12:00 baseline moving earlier to 23:00 keeps a nine-hour opportunity and derives an 08:00 wake time. With the default, stage 1 is 02:45–11:45, stage 2 is 02:30–11:30, and the target is reached in 16 confirmed stages over at least 32 days.
+
+At `review_on_or_after`, ask one short question with `继续提前` / `Continue`, `保持几天` / `Hold`, `退回一步` / `Step back`, `暂停` / `Pause`, and `取消计划` / `Cancel`. Do not advance from calendar time alone, a goodnight timestamp, or missing feedback. After a confirmed change, regenerate the reminder preview because exact Cron times have changed.
+
+If the user says they are not sleepy at the planned time, do not pressure them to lie awake in bed. Offer to hold or move back. Treat goodnight as preparation time and use a direct sleep-onset report or reported latency only when the user supplies it.
+
 ## State model
 
 Use these conversational states:
@@ -87,6 +106,10 @@ Confirm the interpreted date and final value briefly, then use deterministic scr
 - “今天不提醒。” Mark each enabled reminder skipped for today.
 - “以后少提醒。” Apply `action reduce` to the intended reminder type(s), then confirm the resulting frequency/schedule.
 - “推迟二十分钟。” Apply `postpone --minutes 20` only to the most recent pending reminder.
+- “今晚先保持这个时间。” Apply `manage_sleep_shift.py hold` and confirm the next review date.
+- “继续提前十五分钟。” Advance only when the review date has arrived and the user confirms.
+- “这个进度太快了，退回一步。” Apply `back --confirm`, then preview the replacement reminder times.
+- “暂停调整作息。” Pause stage progression; keep the current stage times until resume or cancel.
 
 Corrections must append an audit event containing old value, new value, timestamp, source, and optional reason. Exports show the final effective values and may include audit history when requested.
 

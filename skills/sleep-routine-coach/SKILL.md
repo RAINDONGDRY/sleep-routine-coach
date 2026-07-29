@@ -1,10 +1,10 @@
 ---
 name: sleep-routine-coach
-description: Provide privacy-first, non-diagnostic sleep habit coaching centered on a consent-gated daily wind-down reminder at the user's appropriate time. Use goodnight and morning messages as low-friction sleep-data collection events for descriptive trend analysis, with local records, natural-language corrections, reminder controls, and weekly summaries. Use when a user wants to build a regular sleep/wake routine, prepare for sleep earlier, says goodnight or good morning in an established coaching context, reports or corrects sleep data, asks to view/export/delete records, or wants explicitly authorized OpenClaw Cron or equivalent reminders.
+description: Provide privacy-first, non-diagnostic sleep habit coaching centered on consent-gated daily wind-down reminders and gradual sleep-time adjustment. Build deterministic 15- or 30-minute phase-shift stages while preserving sleep opportunity, and require user confirmation before advancing. Use goodnight and morning messages as low-friction data collection for descriptive trend analysis, with local records, corrections, reminder controls, and weekly summaries. Use when a user wants a regular sleep/wake routine, wants to move a very late or early schedule gradually, says goodnight or good morning in an established coaching context, manages sleep data, or requests explicitly authorized OpenClaw Cron reminders.
 license: MIT-0
 allowed-tools: Read Write Bash(python3:*)
 metadata:
-  version: "0.1.3"
+  version: "0.2.0"
   data-access: "Read/write only the user-approved sleep data directory."
   process-access: "Run bundled Python scripts; no network calls."
   scheduler-access: "Optional, separately consented host scheduler adapter."
@@ -28,8 +28,9 @@ Act as a proactive but restrained sleep-habit companion. Make the authorized dai
 1. Read [interaction-protocol.md](references/interaction-protocol.md) before onboarding, handling goodnight/morning events, corrections, quiet mode, or reminder actions.
 2. Read [data-schema.md](references/data-schema.md) before saving, calculating, correcting, exporting, or deleting data.
 3. Read [safety-boundaries.md](references/safety-boundaries.md) before discussing hydration, nocturia, persistent sleep problems, or possible warning signs.
-4. Read [evidence-sources.md](references/evidence-sources.md) only when explaining the evidence basis or giving health-related general information.
-5. Use the deterministic scripts in `scripts/` relative to the Skill root (`{baseDir}/scripts` in OpenClaw); do not calculate elapsed times, DST transitions, summaries, or reminder schedules mentally.
+4. Read [safety-boundaries.md](references/safety-boundaries.md) and [evidence-sources.md](references/evidence-sources.md) before creating or explaining a gradual sleep-time adjustment plan.
+5. Read [evidence-sources.md](references/evidence-sources.md) when explaining any other health-related evidence.
+6. Use the deterministic scripts in `scripts/` relative to the Skill root (`{baseDir}/scripts` in OpenClaw); do not calculate elapsed times, DST transitions, shift stages, summaries, or reminder schedules mentally.
 
 ## Preserve consent
 
@@ -51,6 +52,7 @@ Run `python3` with the following entry points:
 - `record_sleep_event.py`: record/correct/cancel/view/delete goodnight and morning events.
 - `calculate_sleep_metrics.py`: recompute time-based fields.
 - `build_reminder_schedule.py`: preview schedules and manage reminder state. This script never executes OpenClaw.
+- `manage_sleep_shift.py`: preview, start, inspect, hold, advance, move back, pause, resume, or cancel a gradual sleep-time adjustment plan.
 - `summarize_week.py`: produce descriptive weekly statistics.
 
 Pass `--data-dir` when the host has a configured private data location. Otherwise allow the scripts to use the documented local default. Never place live user data inside the Skill or Git repository.
@@ -71,6 +73,14 @@ Recommend `wind_down` as the primary daily reminder and preview it at an appropr
 8. Store each returned job ID with `build_reminder_schedule.py register-job`.
 
 Treat every `scheduler_request` as inert preview data until final confirmation. Reject a request if its executable, operation, or validated fields differ from the preview. On disable or stop-collection, use `list-jobs`, disable/remove the matching external jobs through the same trusted adapter as a separate explicit scheduler operation, and then call `unregister-job`.
+
+## Adjust sleep time gradually
+
+Use `manage_sleep_shift.py preview` when the user wants to move an established sleep schedule. Collect current typical sleep/wake times and the target sleep time one question at a time. Default to 15-minute stages held for two nights; offer 30-minute stages only when the user prefers a faster plan.
+
+Preserve the current sleep opportunity by shifting sleep and wake times together. If the requested wake target would also shorten or lengthen the opportunity, stop and treat that as a separate explicit goal. Show every stage, estimated minimum duration, wind-down time, and derived wake time before `start --confirm`.
+
+Never auto-advance. At the review date ask whether to continue, hold, move back, pause, or cancel. Missing goodnight/morning data never counts as success. After a confirmed stage change, rebuild the reminder preview and update external jobs only through the consented scheduler workflow.
 
 ## Respond with low pressure
 

@@ -11,6 +11,7 @@ venv/
 profile.json
 sleep-records.json
 reminders.json
+sleep-shift-plan.json
 *.export.json
 sleep-routine-coach-data/
 .sleep-routine-coach/
@@ -18,4 +19,3 @@ sleep-routine-coach-data/
 # ClawHub/OpenClaw local install state.
 .clawhub/
 .clawdhub/
-

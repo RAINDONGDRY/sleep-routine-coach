@@ -1,4 +1,4 @@
 interface:
   display_name: "Sleep Routine Coach"
-  short_description: "Daily wind-down reminders with private sleep tracking"
-  default_prompt: "Use $sleep-routine-coach to set up a gentle daily wind-down reminder and private goodnight/morning sleep tracking."
+  short_description: "Gentle sleep-time adjustment and private tracking"
+  default_prompt: "Use $sleep-routine-coach to help me gradually adjust my sleep time with gentle reminders and private tracking."

@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-> A privacy-first sleep habit agent that reminds you when it is time to wind down, then uses simple goodnight and morning check-ins to track your routine.
+> A privacy-first sleep habit agent that helps you move toward a better schedule in small steps, reminds you when it is time to wind down, and uses simple goodnight and morning check-ins to track your routine.
 
 Have you ever told yourself, more than once, that tomorrow would be the day you finally started sleeping and waking earlier?
 
@@ -60,6 +60,7 @@ The installation command and Cron arguments were checked against the [official O
 
 ## How it supports you
 
+- **Moves late schedules gradually.** If your usual schedule is 03:00–12:00, the agent can build a reviewable series of 15-minute stages instead of demanding an overnight jump to 23:00.
 - **A daily cue to start preparing.** The approved reminder time is based on your sleep window, with separate weekday and weekend schedules when needed.
 - **No bedtime notification flood.** Each stage sends at most one unanswered reminder. Repeatedly ignored reminders automatically become less frequent.
 - **Goodnight is a record, not a demand.** It captures when you started preparing for sleep, not when the agent imagines you actually fell asleep. Recording it immediately starts quiet mode.
@@ -68,6 +69,27 @@ The installation command and Cron arguments were checked against the [official O
 - **Reminders respond to your choices.** Mark one done, snooze it, skip it, or turn it off. Continued silence reduces the frequency.
 - **Your data stays under your control.** View, correct, export, delete one day, delete everything, or stop collection locally.
 - **No invented precision.** Scripts handle midnight crossings, timezones, and daylight-saving changes. If actual sleep onset is unknown, it remains unknown.
+
+## Move your sleep time without an overnight reset
+
+Suppose you usually sleep around 03:00 and wake around 12:00, but want to work toward 23:00. By default, the Skill proposes 15-minute stages and holds each stage for two nights:
+
+| Stage | Wind down | Planned sleep time | Planned wake time |
+| --- | ---: | ---: | ---: |
+| 1 | 01:45 | 02:45 | 11:45 |
+| 2 | 01:30 | 02:30 | 11:30 |
+| … | … | … | … |
+| 16 | 22:00 | 23:00 | 08:00 |
+
+The wake time moves with the sleep time, preserving the original nine-hour sleep opportunity. The agent reminds you at the current stage’s wind-down and sleep times, then asks at the review date whether you want to continue, hold, move back, pause, or cancel. It never advances simply because a calendar date passed, and a missing goodnight or morning report is not treated as success.
+
+The 15–30 minute step range is based on public sleep-habit guidance documented in the [evidence notes](skills/sleep-routine-coach/references/evidence-sources.md). Holding a stage for two nights is this project’s conservative default, not a medical prescription. The feature is habit support: it does not diagnose a circadian disorder, prescribe melatonin or personalized light therapy, or shorten your sleep opportunity without a separate explicit decision.
+
+Try it with:
+
+```text
+Use $sleep-routine-coach. I usually sleep from 03:00 to 12:00 and want to move toward 23:00. Show me a gradual plan first.
+```
 
 ## Why this is not another streak tracker
 
@@ -89,7 +111,7 @@ The default data-directory order is:
 2. `$XDG_DATA_HOME/sleep-routine-coach`
 3. `~/.local/share/sleep-routine-coach`
 
-Local files are `profile.json`, `sleep-records.json`, and `reminders.json`. The scripts use directory mode `0700` and file mode `0600` where supported. Every record requires explicit consent, and `.gitignore` excludes runtime files and exports from the repository.
+Local files are `profile.json`, `sleep-records.json`, `reminders.json`, and—only after a gradual plan is explicitly confirmed—`sleep-shift-plan.json`. The scripts use directory mode `0700` and file mode `0600` where supported. Every record requires explicit consent, and `.gitignore` excludes runtime files and exports from the repository.
 
 “Local storage” describes only the files managed by this Skill. Your configured model provider and messaging channels may still process conversation or reminder content according to their own policies. See the [privacy notice](PRIVACY.md).
 
@@ -107,6 +129,7 @@ These commands operate only on the local data directory you specify:
 
 ```bash
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path show
+python3 skills/sleep-routine-coach/scripts/manage_sleep_shift.py --data-dir /private/path show
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path export --output sleep.export.json
 python3 skills/sleep-routine-coach/scripts/record_sleep_event.py --data-dir /private/path delete --date 2026-07-29
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path delete-all --confirm
@@ -129,7 +152,7 @@ python3 -m unittest discover -s tests -v
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/sleep-routine-coach
 ```
 
-Tests cover normal goodnight/morning flows, midnight crossings, DST, duplicate events, later corrections, declined storage, quiet mode, reminder controls and adaptive frequency, missing values, export and deletion, safety boundaries, and the requirement that unauthorized Cron jobs are never created.
+Tests cover normal goodnight/morning flows, midnight crossings, DST, duplicate events, later corrections, declined storage, gradual stage calculations and controls, shift-aware reminders, quiet mode, adaptive reminder frequency, missing values, export and deletion, safety boundaries, and the requirement that unauthorized Cron jobs are never created.
 
 ## Project structure
 

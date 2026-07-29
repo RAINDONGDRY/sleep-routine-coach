@@ -2,7 +2,7 @@
 
 [English](README.md) | **简体中文**
 
-> 每天在合适的时间提醒你开始为睡眠做准备，并用“晚安/早安”完成低负担记录的隐私优先睡眠习惯 Agent。
+> 用小步调整帮你慢慢靠近理想作息，每天在合适的时间提醒你为睡眠做准备，并用“晚安/早安”完成低负担记录的隐私优先睡眠习惯 Agent。
 
 你是否也曾不止一次想过：明天开始，我要早点睡、早点起？
 
@@ -58,6 +58,7 @@ openclaw skills install @raindongdry/sleep-routine-coach
 
 ## 它会怎么陪你
 
+- **把很晚的作息一点点往前移。** 如果你平时 03:00 睡、12:00 起，它会先给出可以逐段确认的 15 分钟调整计划，而不是要求你一夜之间改到 23:00。
 - **每天提醒开始准备。** 以你的睡眠窗口为基准，在经过你确认的时间提醒收尾和降速；工作日、周末可以不同。
 - **睡前不轰炸。** 每个阶段最多轻轻提醒一次；没有回应就不继续催，连续忽略后还会自动降频。
 - **晚安是记录，不是催促。** 它记录的是“准备睡觉时间”，不是假装知道你真正几点睡着；记录后立即进入夜间静默。
@@ -66,6 +67,27 @@ openclaw skills install @raindongdry/sleep-routine-coach
 - **提醒会看你的反应。** 可以完成、推迟、跳过或关闭；连续几次没有回应后，它会主动降低频率。
 - **数据由你掌握。** 查看、修正、导出、删除某一天、删除全部或彻底停止收集，都在本地完成。
 - **不编造漂亮数字。** 跨午夜、时区和夏令时交给脚本计算；不知道实际入睡时间时，就让数据保持空白。
+
+## 不靠“一夜重置”，循序渐进调整睡眠时间
+
+假设你平时大约 03:00 睡、12:00 起，希望逐步调整到 23:00。默认计划每次提前 15 分钟，每个阶段先保持两个晚上：
+
+| 阶段 | 开始降速 | 计划睡眠时间 | 计划起床时间 |
+| --- | ---: | ---: | ---: |
+| 1 | 01:45 | 02:45 | 11:45 |
+| 2 | 01:30 | 02:30 | 11:30 |
+| … | … | … | … |
+| 16 | 22:00 | 23:00 | 08:00 |
+
+睡眠时间和起床时间一起移动，因此原本 9 小时的睡眠机会不会被悄悄压缩。Agent 会按当前阶段提醒你开始降速，并在计划睡眠时间再轻轻提示一次；到了复盘日期，它只会询问你要继续、保持、退回一步、暂停还是取消，不会因为日期到了就自动推进。没有说“晚安/早安”也不会被当作已经完成。
+
+15–30 分钟的调整步长来自本项目记录的公共睡眠习惯建议，详见[证据来源](skills/sleep-routine-coach/references/evidence-sources.md)；“每阶段两个晚上”是项目采用的保守默认值，不是医疗处方。这个功能只帮助建立习惯：它不诊断昼夜节律障碍，不给出褪黑素剂量或个体化光照治疗方案，也不会在没有单独确认时缩短你的睡眠机会。
+
+可以这样开始：
+
+```text
+使用 $sleep-routine-coach。我平时 03:00 睡、12:00 起，想慢慢调整到 23:00。请先给我看完整计划，不要直接保存或创建提醒。
+```
 
 ## 为什么不是又一个打卡工具
 
@@ -87,7 +109,7 @@ openclaw skills install @raindongdry/sleep-routine-coach
 2. `$XDG_DATA_HOME/sleep-routine-coach`；
 3. `~/.local/share/sleep-routine-coach`。
 
-本地文件为 `profile.json`、`sleep-records.json` 和 `reminders.json`，脚本尽力使用目录 `0700`、文件 `0600` 权限。任何记录都需要明确同意；仓库的 `.gitignore` 排除了这些运行时文件和导出。
+本地文件为 `profile.json`、`sleep-records.json`、`reminders.json`，以及仅在明确确认渐进计划后创建的 `sleep-shift-plan.json`。脚本尽力使用目录 `0700`、文件 `0600` 权限。任何记录都需要明确同意；仓库的 `.gitignore` 排除了这些运行时文件和导出。
 
 “本地保存”只描述本 Skill 的文件存储。你配置的模型服务和消息渠道仍可能按各自政策处理对话或提醒内容。详见 [隐私说明](PRIVACY.md)。
 
@@ -105,6 +127,7 @@ openclaw skills install @raindongdry/sleep-routine-coach
 
 ```bash
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path show
+python3 skills/sleep-routine-coach/scripts/manage_sleep_shift.py --data-dir /private/path show
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path export --output sleep.export.json
 python3 skills/sleep-routine-coach/scripts/record_sleep_event.py --data-dir /private/path delete --date 2026-07-29
 python3 skills/sleep-routine-coach/scripts/manage_profile.py --data-dir /private/path delete-all --confirm
@@ -127,7 +150,7 @@ python3 -m unittest discover -s tests -v
 python3 /path/to/skill-creator/scripts/quick_validate.py skills/sleep-routine-coach
 ```
 
-测试覆盖正常晚安/早安、跨午夜、DST、重复事件、补录修正、拒绝保存、静默、提醒动作/降频、缺失值、导出删除、安全边界和“未授权不创建 Cron”等场景。
+测试覆盖正常晚安/早安、跨午夜、DST、重复事件、补录修正、拒绝保存、渐进阶段计算与控制、随阶段变化的提醒、静默、提醒降频、缺失值、导出删除、安全边界和“未授权不创建 Cron”等场景。
 
 ## 项目结构
 

@@ -36,6 +36,21 @@ Encourage professional help when:
 
 Use urgent/emergency guidance only when the user describes an immediate danger; do not over-escalate routine poor sleep.
 
+## Circadian timing and gradual adjustment
+
+Frame the sleep-shift feature as habit support, not treatment for delayed sleep-wake phase disorder or insomnia.
+
+- Default to 15-minute changes with two nights at each stage; 30-minute stages are optional.
+- Shift sleep and wake times together so the plan does not silently reduce sleep opportunity.
+- Never treat `goodnight_at` as actual sleep onset or use missing data to justify advancing.
+- Let the user hold, move back, pause, or cancel without pressure.
+- Do not tell a user to force sleep when they are not sleepy.
+- Do not implement around-the-clock chronotherapy.
+- Do not recommend melatonin doses or personalized bright-light timing. Timing is clinically important and light therapy can have adverse effects or require precautions.
+- Generic cues such as a regular wind-down routine, broadly consistent timing, less bright artificial light before bed, and ordinary daylight after waking may be described as general education only.
+
+Suggest professional assessment when the very late/early schedule is persistent, difficult to change, or significantly interferes with school, work, safety, or daily functioning. Also defer when the user asks about a diagnosed circadian disorder, medication/supplement timing, light-box treatment, rotating/night shifts, or a plan that intentionally reduces sleep opportunity.
+
 ## Language
 
 Avoid:
@@ -51,4 +66,3 @@ Prefer:
 - “这几天记录到……”
 - “可以跳过，今晚不再提醒。”
 - “缺少入睡耗时，所以这晚不估算睡眠时长。”
-

@@ -75,6 +75,7 @@ class CliCase(unittest.TestCase):
         reminders = [
             "wind_down",
             "goodnight_invite",
+            "sleep_time",
             "wake_target",
             "morning_checkin",
             "weekly_summary",
@@ -98,6 +99,24 @@ class CliCase(unittest.TestCase):
             "2026-07-29T23:06:00-04:00",
         )
         self.assertFalse(ephemeral["persisted"])
+        self.assertFalse(self.data.exists())
+        refused_plan = self.run_cli(
+            "manage_sleep_shift.py",
+            "start",
+            "--confirm",
+            "--timezone",
+            "America/Toronto",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--start-date",
+            "2026-07-29",
+            ok=False,
+        )
+        self.assertIn("explicit consent", refused_plan.stderr)
         self.assertFalse(self.data.exists())
 
     @unittest.skipIf(os.name == "nt", "POSIX permission modes are not portable to Windows")
@@ -464,6 +483,180 @@ class CliCase(unittest.TestCase):
             "Pass executable and argv separately; shell must be disabled.",
         )
 
+    def test_gradual_sleep_shift_preview_preserves_sleep_opportunity(self):
+        preview = self.run_cli(
+            "manage_sleep_shift.py",
+            "preview",
+            "--timezone",
+            "America/Toronto",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--start-date",
+            "2026-07-29",
+        )
+        self.assertFalse(preview["persisted"])
+        self.assertEqual(preview["direction"], "earlier")
+        self.assertEqual(preview["sleep_opportunity_minutes"], 540)
+        self.assertEqual(preview["target_wake_time"], "08:00")
+        self.assertEqual(preview["estimated_minimum_days"], 32)
+        self.assertEqual(len(preview["stages"]), 16)
+        self.assertEqual(preview["stages"][0]["sleep_time"], "02:45")
+        self.assertEqual(preview["stages"][0]["wake_time"], "11:45")
+        self.assertEqual(preview["stages"][-1]["sleep_time"], "23:00")
+        self.assertEqual(preview["stages"][-1]["wake_time"], "08:00")
+        self.assertFalse(self.data.exists())
+
+    def test_sleep_shift_rejects_hidden_sleep_opportunity_change(self):
+        result = self.run_cli(
+            "manage_sleep_shift.py",
+            "preview",
+            "--timezone",
+            "America/Toronto",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--target-wake-time",
+            "07:00",
+            "--start-date",
+            "2026-07-29",
+            ok=False,
+        )
+        self.assertIn("preserves the current sleep opportunity", result.stderr)
+
+    def test_sleep_shift_requires_consent_and_manual_stage_advance(self):
+        self.init_profile()
+        started = self.run_cli(
+            "manage_sleep_shift.py",
+            "start",
+            "--confirm",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--start-date",
+            "2026-07-29",
+        )
+        self.assertTrue(started["started"])
+        self.assertEqual(started["current"]["current_stage"]["sleep_time"], "02:45")
+        self.assertFalse(started["current"]["review_due"])
+        self.authorize_schedule()
+        reminder_plan = self.run_cli("build_reminder_schedule.py", "plan")
+        self.assertEqual(
+            next(item for item in reminder_plan["items"] if item["kind"] == "wind_down")["local_time"],
+            "01:45",
+        )
+        self.assertEqual(
+            next(item for item in reminder_plan["items"] if item["kind"] == "sleep_time")["local_time"],
+            "02:45",
+        )
+        self.assertFalse(any(item["kind"] == "goodnight_invite" for item in reminder_plan["items"]))
+        self.assertEqual(
+            reminder_plan["sleep_shift"]["current_stage"]["sleep_time"],
+            "02:45",
+        )
+        early = self.run_cli(
+            "manage_sleep_shift.py",
+            "advance",
+            "--as-of",
+            "2026-07-30",
+            "--confirm",
+            ok=False,
+        )
+        self.assertIn("Hold this stage", early.stderr)
+        advanced = self.run_cli(
+            "manage_sleep_shift.py",
+            "advance",
+            "--as-of",
+            "2026-07-31",
+            "--confirm",
+        )
+        self.assertEqual(advanced["current"]["current_stage"]["sleep_time"], "02:30")
+        profile = self.run_cli("manage_profile.py", "show")
+        self.assertEqual(profile["sleep_window_start"], "02:30")
+        self.assertEqual(profile["target_wake_time"], "11:30")
+
+    def test_sleep_shift_pause_export_and_stop_collection(self):
+        self.init_profile()
+        self.run_cli(
+            "manage_sleep_shift.py",
+            "start",
+            "--confirm",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--start-date",
+            "2026-07-29",
+        )
+        paused = self.run_cli("manage_sleep_shift.py", "pause")
+        self.assertEqual(paused["plan"]["status"], "paused")
+        resumed = self.run_cli(
+            "manage_sleep_shift.py",
+            "resume",
+            "--as-of",
+            "2026-08-01",
+        )
+        self.assertEqual(resumed["plan"]["status"], "active")
+        exported = self.run_cli("manage_profile.py", "export")
+        self.assertEqual(exported["sleep_shift_plan"]["status"], "active")
+        self.run_cli("manage_profile.py", "stop-collection")
+        shown = self.run_cli("manage_sleep_shift.py", "show")
+        self.assertEqual(shown["status"], "paused")
+
+    def test_sleep_shift_hold_move_back_and_cancel(self):
+        self.init_profile()
+        self.run_cli(
+            "manage_sleep_shift.py",
+            "start",
+            "--confirm",
+            "--current-sleep-time",
+            "03:00",
+            "--current-wake-time",
+            "12:00",
+            "--target-sleep-time",
+            "23:00",
+            "--start-date",
+            "2026-07-29",
+        )
+        held = self.run_cli(
+            "manage_sleep_shift.py",
+            "hold",
+            "--as-of",
+            "2026-07-31",
+            "--days",
+            "3",
+        )
+        self.assertEqual(held["plan"]["review_on_or_after"], "2026-08-03")
+        advanced = self.run_cli(
+            "manage_sleep_shift.py",
+            "advance",
+            "--as-of",
+            "2026-08-03",
+            "--confirm",
+        )
+        self.assertEqual(advanced["plan"]["current_stage_index"], 2)
+        moved_back = self.run_cli(
+            "manage_sleep_shift.py",
+            "back",
+            "--as-of",
+            "2026-08-04",
+            "--confirm",
+        )
+        self.assertEqual(moved_back["plan"]["current_stage_index"], 1)
+        cancelled = self.run_cli("manage_sleep_shift.py", "cancel", "--confirm")
+        self.assertEqual(cancelled["plan"]["status"], "cancelled")
+
     def test_weekday_and_weekend_schedules_are_distinct(self):
         self.run_cli(
             "manage_profile.py",
@@ -657,7 +850,13 @@ class StaticContractCase(unittest.TestCase):
 
     def test_repository_has_no_committed_runtime_data_patterns(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
-        for pattern in ["sleep-records.json", "profile.json", "reminders.json", "*.export.json"]:
+        for pattern in [
+            "sleep-records.json",
+            "profile.json",
+            "reminders.json",
+            "sleep-shift-plan.json",
+            "*.export.json",
+        ]:
             self.assertIn(pattern, ignore)
 
 

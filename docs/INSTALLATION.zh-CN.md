@@ -52,6 +52,8 @@ openclaw skills install ./skills/sleep-routine-coach --as sleep-routine-coach
 4. 让用户逐项选择提醒类型并获得调度授权。
 5. 用 `build_reminder_schedule.py plan` 生成预览。
 6. 在提交任何调度请求前再次确认；优先使用宿主的原生 Cron API。若宿主只能启动进程，必须把脚本返回的 `executable` 与 `argv` 分开传递并关闭 shell 解析，禁止拼接或求值命令字符串。
+
+启用渐进式睡眠时间计划时，每次确认进入新阶段后都要重新运行调度预览，因为睡前准备、睡眠时间和起床提醒的精确时间会变化。先展示替换后的时间和目标任务，再通过可信调度适配器更新；本地脚本不会自行修改外部 Cron。
 7. 将每个成功返回的 job ID 用 `build_reminder_schedule.py register-job` 保存到本地提醒状态。
 
 生成的命令采用当前官方 CLI 参数，包括 `--tz`、`--session isolated`、`--announce`、`--channel` 和 `--to`。任务创建需要 OpenClaw 的 `operator.admin` 权限。

@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.0] - 2026-07-29
+
+Gradual sleep-time adjustment:
+
+- Added deterministic 15/30-minute sleep phase-shift plans with explicit stage confirmation.
+- Preserved baseline sleep opportunity by shifting sleep and wake times together.
+- Added hold, advance, step-back, pause, resume, cancel, export, and audit controls.
+- Integrated stage-specific wind-down, sleep-time, wake, and morning reminder previews.
+- Added authoritative circadian-rhythm evidence, medical boundaries, examples, and tests.
+
 ## [0.1.3] - 2026-07-29
 
 Product-positioning clarification:

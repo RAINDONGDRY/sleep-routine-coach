@@ -13,6 +13,7 @@ Files are created with best-effort directory mode `0700` and file mode `0600`:
 - `profile.json`: consent and preferences.
 - `sleep-records.json`: final effective records with provenance and audit history.
 - `reminders.json`: reminder state; never an OpenClaw Cron database.
+- `sleep-shift-plan.json`: the consented gradual adjustment plan, current stage, review date, and audit history.
 
 Do not save these files under the Skill or repository. Do not sync them externally unless the user explicitly exports and moves them.
 
@@ -51,6 +52,25 @@ Additional derived fields:
 - `audit_history`: append-only changes within the surviving record.
 
 Deleting a day removes that record, including its audit history. Deleting all removes every local file. Do not retain a hidden tombstone.
+
+## Gradual sleep-shift plan
+
+`sleep-shift-plan.json` includes:
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `active`, `paused`, `completed`, or `cancelled`. |
+| `current_sleep_time` / `current_wake_time` | User-reported baseline schedule. |
+| `target_sleep_time` / `target_wake_time` | Final phase target; wake time is derived to preserve sleep opportunity. |
+| `sleep_opportunity_minutes` | Baseline interval from sleep time to wake time; not measured sleep duration. |
+| `direction` / `phase_shift_minutes` | Earlier/later direction and total wall-clock shift. |
+| `step_minutes` / `hold_days` | Stage size (15 or 30 minutes) and minimum nights at each stage. |
+| `current_stage_index` | Explicitly confirmed active stage; never inferred from missing reports. |
+| `stage_started_on` / `review_on_or_after` | Local dates controlling when the next review may occur. |
+| `stages` | Deterministically generated sleep, wake, wind-down, and review values. |
+| `audit_history` | Plan start, hold, advance, back, pause, resume, complete, or cancel events. |
+
+Starting or changing a stage updates the profile's current sleep window and wake target with an audit entry. The plan never changes sleep opportunity silently and never creates or edits external jobs itself.
 
 ## Time rules
 
