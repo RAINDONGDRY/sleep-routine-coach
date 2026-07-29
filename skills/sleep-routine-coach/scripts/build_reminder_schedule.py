@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import shlex
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -41,6 +41,8 @@ REMINDERS = {
     "morning_checkin": ("晨间快速记录", 15, "醒来后跟我说声早安就好。跳过 · 关闭此提醒"),
     "weekly_summary": ("每周睡眠习惯摘要", 0, "生成一份只含描述性趋势的本周睡眠习惯摘要。"),
 }
+
+SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
 def state_path(data_dir: Path) -> Path:
@@ -188,9 +190,26 @@ def schedule_items(profile: dict) -> list[dict]:
     return items
 
 
-def command_for(item: dict, profile: dict, agent: str) -> str | None:
+def validated_identifier(value: str, field: str) -> str:
+    if not SAFE_IDENTIFIER.fullmatch(value):
+        raise SleepRoutineError(
+            f"{field} must contain only letters, digits, dot, underscore, colon, or hyphen"
+        )
+    return value
+
+
+def validated_target(value: str) -> str:
+    if not value or len(value) > 256 or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise SleepRoutineError("delivery_target must be 1-256 printable characters without controls")
+    return value
+
+
+def scheduler_request_for(item: dict, profile: dict, agent: str) -> dict | None:
     if not item["allowed_by_proactive_window"]:
         return None
+    validated_agent = validated_identifier(agent, "agent")
+    validated_channel = validated_identifier(profile["delivery_channel"], "delivery_channel")
+    target = validated_target(profile["delivery_target"])
     prompt = (
         f"Use $sleep-routine-coach for reminder type {item['kind']}. "
         "Run build_reminder_schedule.py evaluate with the current offset-aware time. "
@@ -198,8 +217,7 @@ def command_for(item: dict, profile: dict, agent: str) -> str | None:
         "If send is true, run action sent, then output exactly this gentle reminder: "
         f"{item['message']}"
     )
-    parts = [
-        "openclaw",
+    argv = [
         "cron",
         "create",
         item["cron"],
@@ -209,7 +227,7 @@ def command_for(item: dict, profile: dict, agent: str) -> str | None:
         "--declaration-key",
         f"sleep-routine-coach:{item['schedule_id']}",
         "--agent",
-        agent,
+        validated_agent,
         "--session",
         "isolated",
         "--light-context",
@@ -217,11 +235,18 @@ def command_for(item: dict, profile: dict, agent: str) -> str | None:
         profile["timezone"],
         "--announce",
         "--channel",
-        profile["delivery_channel"],
+        validated_channel,
         "--to",
-        profile["delivery_target"],
+        target,
     ]
-    return shlex.join(parts)
+    return {
+        "operation": "openclaw.cron.create",
+        "executable": "openclaw",
+        "argv": argv,
+        "schedule_id": item["schedule_id"],
+        "validated": True,
+        "execution_policy": "Pass executable and argv separately; shell must be disabled.",
+    }
 
 
 def cmd_plan(args: argparse.Namespace) -> None:
@@ -247,9 +272,15 @@ def cmd_plan(args: argparse.Namespace) -> None:
         "created_jobs": [],
         "note": "Preview only. This script never executes OpenClaw or creates background jobs.",
         "items": items,
-        "commands": [command_for(item, profile, args.agent) for item in items] if authorized else [],
+        "scheduler_requests": [
+            scheduler_request_for(item, profile, args.agent) for item in items
+        ]
+        if authorized
+        else [],
     }
-    output["commands"] = [command for command in output["commands"] if command]
+    output["scheduler_requests"] = [
+        request for request in output["scheduler_requests"] if request
+    ]
     print_json(output)
 
 

@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.1] - 2026-07-29
+
+Security hardening:
+
+- Replaced shell command previews with typed `executable` and `argv` scheduler requests.
+- Added scheduler identifier and delivery-target validation.
+- Declared data, process, and optional scheduler access in Skill metadata.
+- Added regression coverage proving delivery targets remain a single inert argument.
+
 ## [0.1.0] - 2026-07-29
 
 Initial public release:

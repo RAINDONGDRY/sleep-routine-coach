@@ -52,7 +52,7 @@ openclaw skills install @raindongdry/sleep-routine-coach
 
 `goodnight_at` 只是“准备入睡”，不是实际入睡；`morning_at` 是用户报告醒来，不等于离床；两者相减只叫“报告时间窗口”，不会冒充睡眠时长。缺失数据保持为空，周摘要只给描述性趋势，不把相关性写成因果。
 
-精确时间使用 OpenClaw Cron 或等价调度器；Heartbeat 只适合在授权活跃时段内做周期性、自适应判断。`SKILL.md` 自身不会在后台运行。调度脚本只生成预览命令，从不执行 OpenClaw。
+精确时间使用 OpenClaw Cron 或等价调度器；Heartbeat 只适合在授权活跃时段内做周期性、自适应判断。`SKILL.md` 自身不会在后台运行。调度脚本只生成结构化 `executable` + `argv` 预览，从不执行 OpenClaw，也不生成供 shell 求值的命令字符串。
 
 ## 隐私模型
 

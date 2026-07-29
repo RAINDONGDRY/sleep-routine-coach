@@ -1,6 +1,12 @@
 ---
 name: sleep-routine-coach
 description: Provide privacy-first, non-diagnostic sleep habit coaching with gentle goodnight and morning check-ins, consent-gated local records, natural-language corrections, reminder preferences, and descriptive weekly summaries. Use when a user wants to build a regular sleep/wake routine, says goodnight or good morning in an established sleep-coaching context, reports or corrects sleep times or night awakenings, asks to view/export/delete sleep records, or wants explicitly authorized OpenClaw Cron or equivalent reminders.
+license: MIT-0
+metadata:
+  version: "0.1.1"
+  data-access: "Read/write only the user-approved sleep data directory."
+  process-access: "Run bundled Python scripts; no network calls."
+  scheduler-access: "Optional, separately consented host scheduler adapter."
 ---
 
 # Sleep Routine Coach
@@ -47,10 +53,11 @@ Use Cron or an equivalent scheduler for exact times. Use Heartbeat only for peri
 3. Show the exact local times, timezone, channel, destination, allowed sending window, and quiet-mode behavior.
 4. Record scheduling consent with `manage_profile.py authorize-schedule --confirm ...`.
 5. Run `build_reminder_schedule.py plan` and show the preview.
-6. Ask for final confirmation immediately before executing the generated external commands.
-7. Create only the confirmed jobs. Store each returned job ID with `build_reminder_schedule.py register-job`.
+6. Ask for final confirmation immediately before submitting any returned `scheduler_requests`.
+7. Pass only a confirmed request to a trusted scheduler adapter. Prefer a native Cron API. If the host exposes only a process adapter, pass `executable` and `argv` separately with shell processing disabled. Never concatenate or evaluate a shell command.
+8. Store each returned job ID with `build_reminder_schedule.py register-job`.
 
-Never execute generated commands merely because they exist. On disable or stop-collection, use `list-jobs`, disable/remove the matching external jobs as a separate explicit scheduler operation, and then call `unregister-job`.
+Treat every `scheduler_request` as inert preview data until final confirmation. Reject a request if its executable, operation, or validated fields differ from the preview. On disable or stop-collection, use `list-jobs`, disable/remove the matching external jobs through the same trusted adapter as a separate explicit scheduler operation, and then call `unregister-job`.
 
 ## Respond with low pressure
 

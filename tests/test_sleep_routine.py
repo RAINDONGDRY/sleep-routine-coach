@@ -393,7 +393,7 @@ class CliCase(unittest.TestCase):
         self.init_profile(hydration=True)
         plan = self.run_cli("build_reminder_schedule.py", "plan")
         self.assertFalse(plan["authorized"])
-        self.assertEqual(plan["commands"], [])
+        self.assertEqual(plan["scheduler_requests"], [])
         self.assertEqual(plan["created_jobs"], [])
 
         self.authorize_schedule()
@@ -401,11 +401,26 @@ class CliCase(unittest.TestCase):
         self.assertTrue(authorized["authorized"])
         self.assertEqual(authorized["created_jobs"], [])
         self.assertTrue(any(item["kind"] == "hydration_wrap" for item in authorized["items"]))
-        self.assertTrue(all("openclaw cron create" in command for command in authorized["commands"]))
-        self.assertTrue(all("--tz America/Toronto" in command for command in authorized["commands"]))
+        self.assertTrue(
+            all(request["operation"] == "openclaw.cron.create" for request in authorized["scheduler_requests"])
+        )
+        self.assertTrue(
+            all(request["executable"] == "openclaw" for request in authorized["scheduler_requests"])
+        )
+        self.assertTrue(
+            all(request["argv"][:2] == ["cron", "create"] for request in authorized["scheduler_requests"])
+        )
+        self.assertTrue(
+            all(
+                request["argv"][request["argv"].index("--tz") + 1] == "America/Toronto"
+                for request in authorized["scheduler_requests"]
+            )
+        )
+        self.assertTrue(all(request["validated"] for request in authorized["scheduler_requests"]))
         script_text = (SCRIPTS / "build_reminder_schedule.py").read_text(encoding="utf-8")
         self.assertNotIn("import subprocess", script_text)
         self.assertNotIn("os.system", script_text)
+        self.assertNotIn("shlex", script_text)
         registered = self.run_cli(
             "build_reminder_schedule.py",
             "register-job",
@@ -421,6 +436,30 @@ class CliCase(unittest.TestCase):
             "build_reminder_schedule.py", "unregister-job", "--schedule-id", "wind_down_daily"
         )
         self.assertTrue(removed["unregistered"])
+
+    def test_scheduler_preview_keeps_target_as_one_argv_value(self):
+        self.init_profile()
+        target = "user; echo should-not-run"
+        self.run_cli(
+            "manage_profile.py",
+            "authorize-schedule",
+            "--confirm",
+            "--channel",
+            "telegram",
+            "--target",
+            target,
+            "--reminder",
+            "wind_down",
+        )
+        plan = self.run_cli("build_reminder_schedule.py", "plan")
+        self.assertNotIn("commands", plan)
+        request = plan["scheduler_requests"][0]
+        target_index = request["argv"].index("--to") + 1
+        self.assertEqual(request["argv"][target_index], target)
+        self.assertEqual(
+            request["execution_policy"],
+            "Pass executable and argv separately; shell must be disabled.",
+        )
 
     def test_weekday_and_weekend_schedules_are_distinct(self):
         self.run_cli(
