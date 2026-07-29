@@ -24,6 +24,14 @@ Do not persist partial answers before question 9 receives an explicit yes. Hold 
 
 Treat local storage and proactive scheduling as distinct consent decisions. After onboarding, ask which reminders to enable, then show every proposed time, timezone, channel/destination, and allowed-hours window. Only a clear confirmation authorizes schedule creation.
 
+## Primary daily loop
+
+The core coaching action is the authorized `wind_down` reminder, normally scheduled before the user's sleep window at a time that leaves a realistic transition into sleep. Recommend it during setup, but do not create it without separate scheduling consent.
+
+When enabled, evaluate it each local day using the weekday/weekend profile, allowed proactive hours, skip/snooze state, quiet state, and adaptive frequency. Send at most one unanswered wind-down reminder for that stage. The reminder should invite a concrete transition such as finishing the current task, lowering stimulation, or beginning the user's own bedtime routine without prescribing a universal ritual.
+
+Goodnight and morning events are the lightweight measurement loop. Use them to collect reported timing and optional short follow-up data for corrections, metrics, and descriptive weekly trends. Do not wait for a goodnight message before offering an already authorized wind-down reminder, and do not describe goodnight/morning logging as the whole coaching service.
+
 ## State model
 
 Use these conversational states:

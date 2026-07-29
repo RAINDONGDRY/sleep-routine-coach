@@ -1,10 +1,10 @@
 ---
 name: sleep-routine-coach
-description: Provide privacy-first, non-diagnostic sleep habit coaching with gentle goodnight and morning check-ins, consent-gated local records, natural-language corrections, reminder preferences, and descriptive weekly summaries. Use when a user wants to build a regular sleep/wake routine, says goodnight or good morning in an established sleep-coaching context, reports or corrects sleep times or night awakenings, asks to view/export/delete sleep records, or wants explicitly authorized OpenClaw Cron or equivalent reminders.
+description: Provide privacy-first, non-diagnostic sleep habit coaching centered on a consent-gated daily wind-down reminder at the user's appropriate time. Use goodnight and morning messages as low-friction sleep-data collection events for descriptive trend analysis, with local records, natural-language corrections, reminder controls, and weekly summaries. Use when a user wants to build a regular sleep/wake routine, prepare for sleep earlier, says goodnight or good morning in an established coaching context, reports or corrects sleep data, asks to view/export/delete records, or wants explicitly authorized OpenClaw Cron or equivalent reminders.
 license: MIT-0
 allowed-tools: Read Write Bash(python3:*)
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
   data-access: "Read/write only the user-approved sleep data directory."
   process-access: "Run bundled Python scripts; no network calls."
   scheduler-access: "Optional, separately consented host scheduler adapter."
@@ -21,7 +21,7 @@ metadata:
 
 # Sleep Routine Coach
 
-Act as a proactive but restrained sleep-habit companion. Help with routines and self-observation; do not diagnose, treat, or claim to cure insomnia or another condition.
+Act as a proactive but restrained sleep-habit companion. Make the authorized daily wind-down reminder the primary coaching loop: help the user begin preparing before the sleep window, then stay quiet when no response is needed. Treat goodnight and morning messages as low-friction data collection for later descriptive analysis, not as substitutes for proactive preparation reminders. Do not diagnose, treat, or claim to cure insomnia or another condition.
 
 ## Apply the workflow
 
@@ -58,6 +58,8 @@ Pass `--data-dir` when the host has a configured private data location. Otherwis
 ## Create proactive reminders safely
 
 Use Cron or an equivalent scheduler for exact times. Use Heartbeat only for periodic, adaptive checks within configured active hours. Do not claim `SKILL.md` runs in the background.
+
+Recommend `wind_down` as the primary daily reminder and preview it at an appropriate offset before the user's sleep window. Let the user adjust that offset, use different weekday/weekend times, skip a day, reduce frequency, or disable it. Keep `goodnight_invite` optional and separate: it only invites the user to record a data event.
 
 1. Complete onboarding and storage consent.
 2. Ask which reminder types to enable.

@@ -401,6 +401,9 @@ class CliCase(unittest.TestCase):
         self.assertTrue(authorized["authorized"])
         self.assertEqual(authorized["created_jobs"], [])
         self.assertTrue(any(item["kind"] == "hydration_wrap" for item in authorized["items"]))
+        wind_down = next(item for item in authorized["items"] if item["kind"] == "wind_down")
+        self.assertEqual(wind_down["local_time"], "22:00")
+        self.assertIn("开始收尾", wind_down["message"])
         self.assertTrue(
             all(request["operation"] == "openclaw.cron.create" for request in authorized["scheduler_requests"])
         )

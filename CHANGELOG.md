@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.3] - 2026-07-29
+
+Product-positioning clarification:
+
+- Made the authorized daily wind-down reminder the primary coaching loop.
+- Clarified that goodnight and morning messages are low-friction data collection events.
+- Updated the reminder copy, README demo, interaction protocol, and UI metadata.
+
 ## [0.1.2] - 2026-07-29
 
 ClawHub review hardening:
