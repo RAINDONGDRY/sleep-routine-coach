@@ -47,14 +47,14 @@ openclaw skills install ./skills/sleep-routine-coach --as sleep-routine-coach
 安装 Skill 不会创建任何 Cron/Heartbeat。完成首次设置后，Agent 必须：
 
 1. 单独征得本地保存同意。
-2. 询问要启用的提醒类型。
-3. 展示具体本地时间、IANA 时区、允许时段、渠道和目标。
-4. 让用户逐项选择提醒类型并获得调度授权。
-5. 用 `build_reminder_schedule.py plan` 生成预览。
-6. 在提交任何调度请求前再次确认；优先使用宿主的原生 Cron API。若宿主只能启动进程，必须把脚本返回的 `executable` 与 `argv` 分开传递并关闭 shell 解析，禁止拼接或求值命令字符串。
-
-启用渐进式睡眠时间计划时，每次确认进入新阶段后都要重新运行调度预览，因为睡前准备、睡眠时间和起床提醒的精确时间会变化。先展示替换后的时间和目标任务，再通过可信调度适配器更新；本地脚本不会自行修改外部 Cron。
+2. 默认只预览 `wind_down` 和 `sleep_time`；其他提醒等用户需要时再添加。
+3. 用 `build_reminder_schedule.py plan --reminder wind_down --reminder sleep_time` 生成不会执行的预览。
+4. 把提醒类型、精确时间、时区、渠道、目标、允许时段和静默规则放在同一条消息中确认一次。
+5. 明确同意后记录调度授权，重新生成并核对预览；内容一致即可提交，不要重复询问。
+6. 优先使用宿主的原生 Cron API。若宿主只能启动进程，必须把脚本返回的 `executable` 与 `argv` 分开传递并关闭 shell 解析，禁止拼接或求值命令字符串。
 7. 将每个成功返回的 job ID 用 `build_reminder_schedule.py register-job` 保存到本地提醒状态。
+
+启用渐进式睡眠时间计划时，每次确认进入新阶段后都要重新运行调度预览，因为睡前准备和计划睡眠时间会变化。起床提醒保持独立且可选。先展示替换后的时间和目标任务，再通过可信调度适配器更新；本地脚本不会自行修改外部 Cron。
 
 生成的命令采用当前官方 CLI 参数，包括 `--tz`、`--session isolated`、`--announce`、`--channel` 和 `--to`。任务创建需要 OpenClaw 的 `operator.admin` 权限。
 

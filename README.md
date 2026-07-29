@@ -48,7 +48,7 @@ Then start a conversation:
 Use $sleep-routine-coach to help me build a gentle, privacy-first sleep routine.
 ```
 
-Installation does not create scheduled jobs or begin saving data. Setup asks one question at a time and requests explicit local-storage consent before anything is persisted.
+Installation does not create scheduled jobs or begin saving data. The fast setup asks only for missing essentials—timezone, rough sleep-time anchor, and local-storage consent—one question at a time.
 
 Install from ClawHub:
 
@@ -60,7 +60,8 @@ The installation command and Cron arguments were checked against the [official O
 
 ## How it supports you
 
-- **Moves late schedules gradually.** If your usual schedule is 03:00–12:00, the agent can build a reviewable series of 15-minute stages instead of demanding an overnight jump to 23:00.
+- **Moves late sleep times gradually.** If you often start sleeping around 03:00, the agent can build a reviewable series of 15-minute stages instead of demanding an overnight jump to 23:00.
+- **Does not demand a fixed sleep duration.** Wake time and sleep duration can vary; they remain optional observations rather than conditions for advancing a plan.
 - **A daily cue to start preparing.** The approved reminder time is based on your sleep window, with separate weekday and weekend schedules when needed.
 - **No bedtime notification flood.** Each stage sends at most one unanswered reminder. Repeatedly ignored reminders automatically become less frequent.
 - **Goodnight is a record, not a demand.** It captures when you started preparing for sleep, not when the agent imagines you actually fell asleep. Recording it immediately starts quiet mode.
@@ -72,18 +73,24 @@ The installation command and Cron arguments were checked against the [official O
 
 ## Move your sleep time without an overnight reset
 
-Suppose you usually sleep around 03:00 and wake around 12:00, but want to work toward 23:00. By default, the Skill proposes 15-minute stages and holds each stage for two nights:
+Suppose you usually start sleeping around 03:00 but want to work toward 23:00. By default, the Skill proposes 15-minute stages and holds each stage for two nights:
 
-| Stage | Wind down | Planned sleep time | Planned wake time |
-| --- | ---: | ---: | ---: |
-| 1 | 01:45 | 02:45 | 11:45 |
-| 2 | 01:30 | 02:30 | 11:30 |
-| … | … | … | … |
-| 16 | 22:00 | 23:00 | 08:00 |
+| Stage | Wind down | Planned sleep time |
+| --- | ---: | ---: |
+| 1 | 01:45 | 02:45 |
+| 2 | 01:30 | 02:30 |
+| … | … | … |
+| 16 | 22:00 | 23:00 |
 
-The wake time moves with the sleep time, preserving the original nine-hour sleep opportunity. The agent reminds you at the current stage’s wind-down and sleep times, then asks at the review date whether you want to continue, hold, move back, pause, or cancel. It never advances simply because a calendar date passed, and a missing goodnight or morning report is not treated as success.
+The plan changes only the sleep-time reminder anchor. Wake reminders are optional and independent, and the Skill does not expect every night to have the same duration. At the review date, it asks whether you want to continue, hold, move back, pause, or cancel. It never advances simply because a calendar date passed, and missing reports are not treated as success.
 
-The 15–30 minute step range is based on public sleep-habit guidance documented in the [evidence notes](skills/sleep-routine-coach/references/evidence-sources.md). Holding a stage for two nights is this project’s conservative default, not a medical prescription. The feature is habit support: it does not diagnose a circadian disorder, prescribe melatonin or personalized light therapy, or shorten your sleep opportunity without a separate explicit decision.
+The 15–30 minute step range is based on public sleep-habit guidance documented in the [evidence notes](skills/sleep-routine-coach/references/evidence-sources.md). Holding a stage for two nights is this project’s conservative default, not a medical prescription. The feature is habit support: it does not diagnose a circadian disorder or prescribe melatonin, personalized light therapy, or sleep restriction.
+
+## Short setup, one meaningful confirmation
+
+The normal setup no longer walks through every optional preference. It asks for a timezone, a rough sleep-time anchor, and local-storage consent. Wake reminders, weekend schedules, hydration, intensity, and weekly summaries are configured only if requested.
+
+For proactive reminders, the agent first shows an inert preview. Exact times, timezone, channel, destination, active window, and quiet behavior appear in one compact confirmation. After a clear yes, it verifies the regenerated schedule and does not ask the same confirmation again.
 
 Try it with:
 

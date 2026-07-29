@@ -43,13 +43,6 @@ def signed_phase_delta(current: int, target: int, direction: str) -> int:
     return clockwise if clockwise < 12 * 60 else clockwise - 24 * 60
 
 
-def sleep_opportunity_minutes(sleep_time: int, wake_time: int) -> int:
-    duration = (wake_time - sleep_time) % (24 * 60)
-    if duration == 0:
-        raise SleepRoutineError("Sleep and wake times cannot be identical")
-    return duration
-
-
 def build_plan(args: argparse.Namespace, timezone: str) -> dict:
     get_zone(timezone)
     if args.step_minutes not in ALLOWED_STEPS:
@@ -58,23 +51,14 @@ def build_plan(args: argparse.Namespace, timezone: str) -> dict:
         raise SleepRoutineError("--hold-days must be between 1 and 7")
     start_date = validate_date(args.start_date)
     current_sleep = minutes_of_day(args.current_sleep_time)
-    current_wake = minutes_of_day(args.current_wake_time)
     target_sleep = minutes_of_day(args.target_sleep_time)
+    if args.current_wake_time:
+        minutes_of_day(args.current_wake_time)
+    if args.target_wake_time:
+        minutes_of_day(args.target_wake_time)
     delta = signed_phase_delta(current_sleep, target_sleep, args.direction)
     if delta == 0:
         raise SleepRoutineError("Current and target sleep times are already the same")
-
-    opportunity = sleep_opportunity_minutes(current_sleep, current_wake)
-    derived_target_wake = (current_wake + delta) % (24 * 60)
-    if args.target_wake_time:
-        requested_target_wake = minutes_of_day(args.target_wake_time)
-        if requested_target_wake != derived_target_wake:
-            raise SleepRoutineError(
-                "This phase-shift plan preserves the current sleep opportunity. "
-                f"For target sleep {args.target_sleep_time}, the matching wake time is "
-                f"{hhmm_from_minutes(derived_target_wake)}. A different wake target would also "
-                "change sleep opportunity and needs a separate explicit plan."
-            )
 
     sign = 1 if delta > 0 else -1
     remaining = abs(delta)
@@ -86,13 +70,11 @@ def build_plan(args: argparse.Namespace, timezone: str) -> dict:
         increment = min(args.step_minutes, remaining)
         cumulative += increment * sign
         stage_sleep = (current_sleep + cumulative) % (24 * 60)
-        stage_wake = (current_wake + cumulative) % (24 * 60)
         earliest = first_date + timedelta(days=(index - 1) * args.hold_days)
         stages.append(
             {
                 "index": index,
                 "sleep_time": hhmm_from_minutes(stage_sleep),
-                "wake_time": hhmm_from_minutes(stage_wake),
                 "wind_down_at": hhmm_from_minutes(stage_sleep - args.wind_down_minutes),
                 "shift_from_previous_minutes": increment * sign,
                 "shift_from_baseline_minutes": cumulative,
@@ -111,8 +93,9 @@ def build_plan(args: argparse.Namespace, timezone: str) -> dict:
         "current_sleep_time": args.current_sleep_time,
         "current_wake_time": args.current_wake_time,
         "target_sleep_time": args.target_sleep_time,
-        "target_wake_time": hhmm_from_minutes(derived_target_wake),
-        "sleep_opportunity_minutes": opportunity,
+        "target_wake_time": args.target_wake_time,
+        "wake_policy": "independent_optional",
+        "sleep_duration_target_minutes": None,
         "phase_shift_minutes": delta,
         "step_minutes": args.step_minutes,
         "hold_days": args.hold_days,
@@ -128,7 +111,11 @@ def build_plan(args: argparse.Namespace, timezone: str) -> dict:
         "audit_history": [],
         "safety_note": (
             "This is a habit-support phase shift, not sleep restriction or medical treatment. "
-            "It preserves the current sleep opportunity and never auto-advances without user confirmation."
+            "It adjusts reminder timing without assuming a fixed sleep duration, and never auto-advances."
+        ),
+        "duration_note": (
+            "Wake time and sleep duration are optional, variable observations. "
+            "This plan does not grade or advance the user by duration."
         ),
     }
 
@@ -139,10 +126,7 @@ def update_profile_for_stage(data_dir: Path, plan: dict, stage: dict, action: st
         raise SleepRoutineError("An active local-storage consent is required")
     stamp = iso_now()
     old_sleep = profile.get("sleep_window_start")
-    old_wake = profile.get("target_wake_time")
     profile["sleep_window_start"] = stage["sleep_time"]
-    profile["sleep_window_end"] = stage["wake_time"]
-    profile["target_wake_time"] = stage["wake_time"]
     profile["updated_at"] = stamp
     profile.setdefault("audit_history", []).append(
         {
@@ -150,8 +134,7 @@ def update_profile_for_stage(data_dir: Path, plan: dict, stage: dict, action: st
             "action": action,
             "old_sleep_window_start": old_sleep,
             "new_sleep_window_start": stage["sleep_time"],
-            "old_target_wake_time": old_wake,
-            "new_target_wake_time": stage["wake_time"],
+            "wake_time_unchanged": True,
         }
     )
     save_json(data_dir / "profile.json", profile)
@@ -354,7 +337,7 @@ def cmd_cancel(args: argparse.Namespace) -> None:
 def add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--timezone")
     parser.add_argument("--current-sleep-time", required=True)
-    parser.add_argument("--current-wake-time", required=True)
+    parser.add_argument("--current-wake-time")
     parser.add_argument("--target-sleep-time", required=True)
     parser.add_argument("--target-wake-time")
     parser.add_argument("--start-date", required=True)

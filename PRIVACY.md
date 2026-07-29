@@ -13,7 +13,7 @@ sleep-routine-coach uses consent-gated local JSON files. It does not require an 
 
 ## Stored data
 
-The profile contains routine preferences, storage/scheduling consent, and optional channel routing. Sleep records contain the fields documented in `references/data-schema.md`, provenance, and correction audit history. Reminder state contains enabled/disabled, snooze, skip, pending reply, and ignore-frequency information. If the user explicitly starts a gradual adjustment plan, `sleep-shift-plan.json` contains its baseline and target times, stage schedule, current stage, review date, status, and audit history.
+The profile contains routine preferences, storage/scheduling consent, and optional channel routing. Sleep records contain the fields documented in `references/data-schema.md`, provenance, and correction audit history. Reminder state contains enabled/disabled, snooze, skip, pending reply, and ignore-frequency information. If the user explicitly starts a gradual adjustment plan, `sleep-shift-plan.json` contains its baseline and target sleep-time anchors, optional wake references, stage schedule, current stage, review date, status, and audit history. It does not require a fixed sleep-duration target.
 
 Default location is `~/.local/share/sleep-routine-coach`, with `SLEEP_ROUTINE_DATA_DIR` and `XDG_DATA_HOME` overrides. Best-effort permissions are `0700` for the directory and `0600` for files.
 

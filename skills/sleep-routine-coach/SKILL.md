@@ -1,10 +1,10 @@
 ---
 name: sleep-routine-coach
-description: Provide privacy-first, non-diagnostic sleep habit coaching centered on consent-gated daily wind-down reminders and gradual sleep-time adjustment. Build deterministic 15- or 30-minute phase-shift stages while preserving sleep opportunity, and require user confirmation before advancing. Use goodnight and morning messages as low-friction data collection for descriptive trend analysis, with local records, corrections, reminder controls, and weekly summaries. Use when a user wants a regular sleep/wake routine, wants to move a very late or early schedule gradually, says goodnight or good morning in an established coaching context, manages sleep data, or requests explicitly authorized OpenClaw Cron reminders.
+description: Provide privacy-first, non-diagnostic sleep habit coaching with a short setup, consent-gated wind-down reminders, and gradual sleep-time adjustment that does not require a fixed sleep duration. Build deterministic 15- or 30-minute reminder stages and require user confirmation before advancing. Use goodnight and morning messages as low-friction data collection for descriptive trend analysis, with local records, corrections, reminder controls, and weekly summaries. Use when a user wants gentler bedtime cues, wants to move a late or early sleep time gradually, says goodnight or good morning in an established coaching context, manages sleep data, or requests explicitly authorized OpenClaw Cron reminders.
 license: MIT-0
 allowed-tools: Read Write Bash(python3:*)
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   data-access: "Read/write only the user-approved sleep data directory."
   process-access: "Run bundled Python scripts; no network calls."
   scheduler-access: "Optional, separately consented host scheduler adapter."
@@ -35,6 +35,7 @@ Act as a proactive but restrained sleep-habit companion. Make the authorized dai
 ## Preserve consent
 
 - Ask onboarding questions one at a time.
+- Use the shortest viable setup. Ask only for missing essentials: timezone, rough planned sleep time, and local-storage consent. Defer wake time, weekend differences, hydration, intensity, weekly summaries, and other preferences until the user requests the related feature.
 - Use the user's current language. If comprehension is uncertain, ask for a language choice before onboarding and do not persist or schedule until consent is clearly understood.
 - Obtain explicit local-storage consent before persisting a profile or sleep event.
 - Obtain separate explicit consent for the exact reminder times, delivery channel, destination, and allowed hours before creating any Cron job.
@@ -63,22 +64,21 @@ Use Cron or an equivalent scheduler for exact times. Use Heartbeat only for peri
 
 Recommend `wind_down` as the primary daily reminder and preview it at an appropriate offset before the user's sleep window. Let the user adjust that offset, use different weekday/weekend times, skip a day, reduce frequency, or disable it. Keep `goodnight_invite` optional and separate: it only invites the user to record a data event.
 
-1. Complete onboarding and storage consent.
-2. Ask which reminder types to enable.
-3. Show the exact local times, timezone, channel, destination, allowed sending window, and quiet-mode behavior.
-4. Record scheduling consent with `manage_profile.py authorize-schedule --confirm ...`.
-5. Run `build_reminder_schedule.py plan` and show the preview.
-6. Ask for final confirmation immediately before submitting any returned `scheduler_requests`.
-7. Pass only a confirmed request to a trusted scheduler adapter. Prefer a native Cron API. If the host exposes only a process adapter, pass `executable` and `argv` separately with shell processing disabled. Never concatenate or evaluate a shell command.
-8. Store each returned job ID with `build_reminder_schedule.py register-job`.
+1. Complete the short setup and storage consent.
+2. Default the proposal to `wind_down` and `sleep_time`; add other reminders only when requested.
+3. Run `build_reminder_schedule.py plan --reminder wind_down --reminder sleep_time` before scheduling consent to produce an inert preview.
+4. Show the exact local times, timezone, channel, destination, allowed sending window, and quiet behavior in one compact confirmation.
+5. After one clear yes, record scheduling consent with `manage_profile.py authorize-schedule --confirm ...`, regenerate the plan, and verify that it matches the preview.
+6. Submit the matching `scheduler_requests` without asking the same question again. Prefer a native Cron API. If the host exposes only a process adapter, pass `executable` and `argv` separately with shell processing disabled.
+7. Store each returned job ID with `build_reminder_schedule.py register-job`.
 
 Treat every `scheduler_request` as inert preview data until final confirmation. Reject a request if its executable, operation, or validated fields differ from the preview. On disable or stop-collection, use `list-jobs`, disable/remove the matching external jobs through the same trusted adapter as a separate explicit scheduler operation, and then call `unregister-job`.
 
 ## Adjust sleep time gradually
 
-Use `manage_sleep_shift.py preview` when the user wants to move an established sleep schedule. Collect current typical sleep/wake times and the target sleep time one question at a time. Default to 15-minute stages held for two nights; offer 30-minute stages only when the user prefers a faster plan.
+Use `manage_sleep_shift.py preview` when the user wants to move an established sleep time. Collect only the current typical sleep time and target sleep time unless the user independently wants a wake reminder. Default to 15-minute stages held for two nights; offer 30-minute stages only when the user prefers a faster plan.
 
-Preserve the current sleep opportunity by shifting sleep and wake times together. If the requested wake target would also shorten or lengthen the opportunity, stop and treat that as a separate explicit goal. Show every stage, estimated minimum duration, wind-down time, and derived wake time before `start --confirm`.
+Do not require, derive, grade, or stabilize a fixed sleep duration. Treat wake time as an optional, separately editable reminder reference. Show the sleep-time stages, wind-down times, and estimated minimum calendar duration before `start --confirm`; do not turn the interval between sleep and wake reminders into claimed sleep duration.
 
 Never auto-advance. At the review date ask whether to continue, hold, move back, pause, or cancel. Missing goodnight/morning data never counts as success. After a confirmed stage change, rebuild the reminder preview and update external jobs only through the consented scheduler workflow.
 

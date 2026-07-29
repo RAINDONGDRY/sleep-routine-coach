@@ -8,21 +8,19 @@ Do not persist data or authorize scheduling when the user may not understand the
 
 ## Onboarding
 
-Ask exactly one question per turn, in this order unless the user has already supplied an answer:
+Use a three-question fast path and skip anything the user already supplied:
 
 1. Timezone — e.g. “你所在的时区是？” / “What timezone are you in?” Resolve to an IANA timezone such as `Asia/Shanghai` or `America/Toronto`.
-2. Target wake time — “你希望通常几点起床？” / “What time would you usually like to wake up?”
-3. Approximate sleep target or window — “你希望大概几点睡，或给自己留多长的睡眠窗口？” / “Roughly when would you like to sleep, or what sleep window would you like?”
-4. Weekday/weekend difference — “工作日和周末的时间会不同吗？” / “Should weekdays and weekends differ?” If yes, collect weekend values one at a time.
-5. Nocturia concern — “你是否经常因为起夜影响睡眠？” / “Does waking to use the bathroom often affect your sleep?”
-6. Optional hydration wrap-up — “要不要启用晚间大量饮水收尾提醒？” / “Would you like an optional evening reminder to avoid one large drink near bedtime?” Explain the optional, non-dehydrating boundary if relevant.
-7. Reminder intensity — “你希望提醒强度是极少、温和，还是标准？” / “Would you prefer minimal, gentle, or standard reminders?”
-8. Allowed proactive hours — “允许我主动发消息的时间范围是什么？” / “During what hours may I send proactive messages?”
-9. Local-storage consent — “你是否明确同意把这些设置和之后的睡眠记录保存在本地？” / “Do you explicitly agree to save these settings and later sleep records locally?”
+2. Rough planned sleep time — “你通常想在几点左右开始睡觉？” / “Around what time would you usually like to start sleeping?” Treat it as a reminder anchor, not promised sleep onset.
+3. Local-storage consent — “是否同意把这些设置和之后主动提供的睡眠记录保存在本地？” / “Do you agree to save these settings and sleep records you actively provide locally?”
 
-Do not persist partial answers before question 9 receives an explicit yes. Hold them only in the current conversation. If consent is declined, do not call a writing command.
+Do not persist partial answers before question 3 receives an explicit yes. Hold them only in the current conversation. If consent is declined, do not call a writing command.
 
-Treat local storage and proactive scheduling as distinct consent decisions. After onboarding, ask which reminders to enable, then show every proposed time, timezone, channel/destination, and allowed-hours window. Only a clear confirmation authorizes schedule creation.
+Apply gentle defaults without asking: no fixed sleep-duration target, no wake reminder, no weekend split, no hydration reminder, gentle intensity, and an initial active window from 90 minutes before to 30 minutes after the sleep-time anchor. These are editable defaults, not medical recommendations.
+
+Ask about wake time only when the user wants a wake or morning reminder. Ask about weekend differences, nocturia/hydration, intensity, or weekly summaries only when the user requests that feature or the setting becomes necessary.
+
+Treat local storage and proactive scheduling as distinct consent decisions. Before authorization, generate an inert preview containing the proposed reminders, exact times, timezone, channel/destination, active window, and quiet behavior. Ask one compact scheduling-confirmation question. After a clear yes, record consent, regenerate and compare the preview, then create only matching jobs without a duplicate confirmation.
 
 ## Primary daily loop
 
@@ -34,18 +32,16 @@ Goodnight and morning events are the lightweight measurement loop. Use them to c
 
 ## Gradual sleep-time adjustment
 
-When a user wants to move a late or early routine, ask one question per turn:
+When a user wants to move a late or early sleep time, ask one question per turn:
 
 1. Current typical sleep time.
-2. Current typical wake time.
-3. Desired sleep time.
-4. Confirm the derived wake time that preserves the same sleep opportunity.
-5. Ask whether to use the gentle default (15 minutes, hold two nights) or 30-minute stages.
-6. Show the complete preview and estimated minimum duration.
-7. Ask for explicit plan confirmation before writing `sleep-shift-plan.json`.
-8. Separately preview and confirm `wind_down`, `sleep_time`, wake, and check-in scheduler changes.
+2. Desired sleep time.
+3. Show the gentle default (15 minutes, hold two nights) and let the user request 30-minute stages without asking an extra question.
+4. Show the complete sleep-time preview and estimated minimum calendar duration.
+5. Ask for explicit plan confirmation before writing `sleep-shift-plan.json`.
+6. Separately preview the changed `wind_down` and `sleep_time` jobs, then use the single scheduling-confirmation flow.
 
-Example: a 03:00–12:00 baseline moving earlier to 23:00 keeps a nine-hour opportunity and derives an 08:00 wake time. With the default, stage 1 is 02:45–11:45, stage 2 is 02:30–11:30, and the target is reached in 16 confirmed stages over at least 32 days.
+Example: a 03:00 sleep-time anchor moving earlier to 23:00 produces stage 1 at 02:45, stage 2 at 02:30, and reaches the target in 16 confirmed stages over at least 32 days. Do not derive a wake target or fixed sleep duration. A wake reminder remains optional and independent.
 
 At `review_on_or_after`, ask one short question with `继续提前` / `Continue`, `保持几天` / `Hold`, `退回一步` / `Step back`, `暂停` / `Pause`, and `取消计划` / `Cancel`. Do not advance from calendar time alone, a goodnight timestamp, or missing feedback. After a confirmed change, regenerate the reminder preview because exact Cron times have changed.
 
@@ -58,7 +54,7 @@ Use these conversational states:
 - `setup`: ask one unanswered setup question.
 - `daytime`: allow ordinary coaching and authorized reminders.
 - `goodnight_invited`: send at most one unanswered invitation near the sleep window.
-- `night_quiet`: suppress ordinary proactive messages until the agreed wake time.
+- `night_quiet`: suppress ordinary proactive messages until an optional agreed wake reminder, or until the user next reports being awake.
 - `morning_checkin`: ask at most two short questions.
 - `paused_today`: suppress reminders for the user's local calendar day.
 - `collection_stopped`: do not write new records.
@@ -73,7 +69,7 @@ Recognize direct or natural equivalents such as “晚安”, “睡觉了”, �
 2. Describe it only as “准备入睡时间” or “准备睡觉时间”.
 3. Reply once in the user's language, for example: “晚安 🌙 已记下你在 23:06 准备入睡。我会保持安静，明早见。” / “Good night 🌙 I recorded 23:06 as the time you started preparing to sleep. I’ll stay quiet until morning.”
 4. Enter `night_quiet`; ask no follow-up question.
-5. Do not send ordinary reminders before the authorized wake time unless the user messages again.
+5. If a wake reminder is authorized, do not send ordinary reminders before it unless the user messages again. Without one, remain quiet until the user reports being awake or starts another conversation.
 
 If the user continues chatting or says they cannot sleep, respond to the new message but do not reinterpret `goodnight_at` as actual sleep onset. Leave sleep latency unknown. A later “晚安” replaces `goodnight_at` for that session and adds an audit entry.
 

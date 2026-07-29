@@ -12,8 +12,10 @@ from sleep_core import (
     SleepRoutineError,
     default_data_dir,
     get_zone,
+    hhmm_from_minutes,
     iso_now,
     load_profile,
+    minutes_of_day,
     parse_hhmm,
     print_json,
     save_json,
@@ -85,22 +87,33 @@ def cmd_init(args: argparse.Namespace) -> None:
         print_json({"persisted": False, "reason": "storage consent declined"})
         return
     get_zone(args.timezone)
-    for value in (args.target_wake_time, args.sleep_window_start, args.sleep_window_end, args.proactive_start):
-        parse_hhmm(value)
-    if args.proactive_end != "24:00":
-        parse_hhmm(args.proactive_end)
+    parse_hhmm(args.sleep_window_start)
+    for value in (args.target_wake_time, args.sleep_window_end):
+        if value:
+            parse_hhmm(value)
+    if bool(args.proactive_start) != bool(args.proactive_end):
+        raise SleepRoutineError("Provide both --proactive-start and --proactive-end, or neither")
+    proactive_start = args.proactive_start or hhmm_from_minutes(
+        minutes_of_day(args.sleep_window_start) - 90
+    )
+    proactive_end = args.proactive_end or hhmm_from_minutes(
+        minutes_of_day(args.sleep_window_start) + 30
+    )
+    parse_hhmm(proactive_start)
+    if proactive_end != "24:00":
+        parse_hhmm(proactive_end)
     if args.weekend_differs:
-        weekend_values = [
+        if not args.weekend_sleep_window_start:
+            raise SleepRoutineError(
+                "Weekend sleep-window start is required when weekend-differs is enabled"
+            )
+        for value in (
             args.weekend_wake_time,
             args.weekend_sleep_window_start,
             args.weekend_sleep_window_end,
-        ]
-        if not all(weekend_values):
-            raise SleepRoutineError(
-                "Weekend wake time and sleep-window start/end are required when weekend-differs is enabled"
-            )
-        for value in weekend_values:
-            parse_hhmm(value)
+        ):
+            if value:
+                parse_hhmm(value)
     if args.hydration_reminder_enabled and not args.often_nocturia:
         raise SleepRoutineError("Hydration wrap-up reminders require an active nocturia concern and explicit opt-in")
     stamp = iso_now()
@@ -117,19 +130,32 @@ def cmd_init(args: argparse.Namespace) -> None:
         "often_nocturia": args.often_nocturia,
         "hydration_reminder_enabled": args.hydration_reminder_enabled,
         "reminder_intensity": args.reminder_intensity,
-        "proactive_start": args.proactive_start,
-        "proactive_end": args.proactive_end,
+        "proactive_start": proactive_start,
+        "proactive_end": proactive_end,
         "storage_consent": True,
         "scheduling_consent": False,
         "delivery_channel": None,
         "delivery_target": None,
+        "enabled_reminders": [],
         "collection_enabled": True,
         "created_at": stamp,
         "updated_at": stamp,
         "audit_history": [{"at": stamp, "action": "storage_consent_granted"}],
     }
     save_json(args.data_dir / "profile.json", profile)
-    print_json({"persisted": True, "profile": profile})
+    print_json(
+        {
+            "persisted": True,
+            "profile": profile,
+            "defaults_applied": {
+                "reminder_intensity": args.reminder_intensity,
+                "proactive_window": [proactive_start, proactive_end]
+                if not args.proactive_start
+                else None,
+                "sleep_duration_target": None,
+            },
+        }
+    )
 
 
 def cmd_show(args: argparse.Namespace) -> None:
@@ -167,6 +193,12 @@ def cmd_authorize_schedule(args: argparse.Namespace) -> None:
         raise SleepRoutineError("Schedule authorization requires --confirm")
     if "hydration_wrap" in args.reminder and not profile.get("hydration_reminder_enabled"):
         raise SleepRoutineError("Hydration reminder is not enabled in the consented profile")
+    if {"wake_target", "morning_checkin"}.intersection(args.reminder) and not profile.get(
+        "target_wake_time"
+    ):
+        raise SleepRoutineError(
+            "Wake and morning reminders require an optional target_wake_time first"
+        )
     profile["scheduling_consent"] = True
     profile["delivery_channel"] = args.channel
     profile["delivery_target"] = args.target
@@ -275,9 +307,9 @@ def build_parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init")
     init.add_argument("--consent", action="store_true")
     init.add_argument("--timezone", required=True)
-    init.add_argument("--target-wake-time", required=True)
+    init.add_argument("--target-wake-time")
     init.add_argument("--sleep-window-start", required=True)
-    init.add_argument("--sleep-window-end", required=True)
+    init.add_argument("--sleep-window-end")
     init.add_argument("--weekend-differs", action="store_true")
     init.add_argument("--weekend-wake-time")
     init.add_argument("--weekend-sleep-window-start")
@@ -285,8 +317,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--often-nocturia", action="store_true")
     init.add_argument("--hydration-reminder-enabled", action="store_true")
     init.add_argument("--reminder-intensity", choices=["minimal", "gentle", "standard"], default="gentle")
-    init.add_argument("--proactive-start", required=True)
-    init.add_argument("--proactive-end", required=True)
+    init.add_argument("--proactive-start")
+    init.add_argument("--proactive-end")
     init.set_defaults(func=cmd_init)
 
     show = sub.add_parser("show")

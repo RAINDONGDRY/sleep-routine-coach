@@ -125,6 +125,82 @@ class CliCase(unittest.TestCase):
         self.assertEqual(self.data.stat().st_mode & 0o777, 0o700)
         self.assertEqual((self.data / "profile.json").stat().st_mode & 0o777, 0o600)
 
+    def test_quick_setup_has_no_fixed_duration_or_wake_requirement(self):
+        result = self.run_cli(
+            "manage_profile.py",
+            "init",
+            "--consent",
+            "--timezone",
+            "America/Toronto",
+            "--sleep-window-start",
+            "23:00",
+        )
+        profile = result["profile"]
+        self.assertIsNone(profile["target_wake_time"])
+        self.assertIsNone(profile["sleep_window_end"])
+        self.assertEqual(profile["proactive_start"], "21:30")
+        self.assertEqual(profile["proactive_end"], "23:30")
+        self.assertIsNone(result["defaults_applied"]["sleep_duration_target"])
+
+        preview = self.run_cli(
+            "build_reminder_schedule.py",
+            "plan",
+            "--reminder",
+            "wind_down",
+            "--reminder",
+            "sleep_time",
+        )
+        self.assertFalse(preview["authorized"])
+        self.assertEqual(preview["scheduler_requests"], [])
+        self.assertEqual(
+            {(item["kind"], item["local_time"]) for item in preview["items"]},
+            {("wind_down", "22:00"), ("sleep_time", "23:00")},
+        )
+        self.run_cli(
+            "manage_profile.py",
+            "authorize-schedule",
+            "--confirm",
+            "--channel",
+            "telegram",
+            "--target",
+            "123456",
+            "--reminder",
+            "wind_down",
+            "--reminder",
+            "sleep_time",
+        )
+        authorized = self.run_cli("build_reminder_schedule.py", "plan")
+        self.assertTrue(authorized["authorized"])
+        self.assertEqual(
+            [(item["kind"], item["local_time"]) for item in authorized["items"]],
+            [(item["kind"], item["local_time"]) for item in preview["items"]],
+        )
+        self.assertEqual(len(authorized["scheduler_requests"]), 2)
+
+    def test_wake_reminder_is_deferred_until_wake_time_is_requested(self):
+        self.run_cli(
+            "manage_profile.py",
+            "init",
+            "--consent",
+            "--timezone",
+            "America/Toronto",
+            "--sleep-window-start",
+            "23:00",
+        )
+        refused = self.run_cli(
+            "manage_profile.py",
+            "authorize-schedule",
+            "--confirm",
+            "--channel",
+            "telegram",
+            "--target",
+            "123456",
+            "--reminder",
+            "wake_target",
+            ok=False,
+        )
+        self.assertIn("target_wake_time", refused.stderr)
+
     def test_normal_goodnight_morning_and_duplicate_events(self):
         self.init_profile()
         first = self.run_cli(
@@ -483,7 +559,7 @@ class CliCase(unittest.TestCase):
             "Pass executable and argv separately; shell must be disabled.",
         )
 
-    def test_gradual_sleep_shift_preview_preserves_sleep_opportunity(self):
+    def test_gradual_sleep_shift_preview_does_not_fix_duration(self):
         preview = self.run_cli(
             "manage_sleep_shift.py",
             "preview",
@@ -500,18 +576,19 @@ class CliCase(unittest.TestCase):
         )
         self.assertFalse(preview["persisted"])
         self.assertEqual(preview["direction"], "earlier")
-        self.assertEqual(preview["sleep_opportunity_minutes"], 540)
-        self.assertEqual(preview["target_wake_time"], "08:00")
+        self.assertNotIn("sleep_opportunity_minutes", preview)
+        self.assertIsNone(preview["target_wake_time"])
+        self.assertIsNone(preview["sleep_duration_target_minutes"])
+        self.assertEqual(preview["wake_policy"], "independent_optional")
         self.assertEqual(preview["estimated_minimum_days"], 32)
         self.assertEqual(len(preview["stages"]), 16)
         self.assertEqual(preview["stages"][0]["sleep_time"], "02:45")
-        self.assertEqual(preview["stages"][0]["wake_time"], "11:45")
+        self.assertNotIn("wake_time", preview["stages"][0])
         self.assertEqual(preview["stages"][-1]["sleep_time"], "23:00")
-        self.assertEqual(preview["stages"][-1]["wake_time"], "08:00")
         self.assertFalse(self.data.exists())
 
-    def test_sleep_shift_rejects_hidden_sleep_opportunity_change(self):
-        result = self.run_cli(
+    def test_sleep_shift_accepts_independent_optional_wake_reference(self):
+        preview = self.run_cli(
             "manage_sleep_shift.py",
             "preview",
             "--timezone",
@@ -526,9 +603,10 @@ class CliCase(unittest.TestCase):
             "07:00",
             "--start-date",
             "2026-07-29",
-            ok=False,
         )
-        self.assertIn("preserves the current sleep opportunity", result.stderr)
+        self.assertEqual(preview["target_wake_time"], "07:00")
+        self.assertEqual(preview["wake_policy"], "independent_optional")
+        self.assertNotIn("wake_time", preview["stages"][0])
 
     def test_sleep_shift_requires_consent_and_manual_stage_advance(self):
         self.init_profile()
@@ -582,7 +660,7 @@ class CliCase(unittest.TestCase):
         self.assertEqual(advanced["current"]["current_stage"]["sleep_time"], "02:30")
         profile = self.run_cli("manage_profile.py", "show")
         self.assertEqual(profile["sleep_window_start"], "02:30")
-        self.assertEqual(profile["target_wake_time"], "11:30")
+        self.assertEqual(profile["target_wake_time"], "07:30")
 
     def test_sleep_shift_pause_export_and_stop_collection(self):
         self.init_profile()
@@ -768,6 +846,15 @@ class CliCase(unittest.TestCase):
         )
         self.assertFalse(result["send"])
         self.assertIn("night_quiet", result["reasons"])
+        summary = self.run_cli(
+            "build_reminder_schedule.py",
+            "evaluate",
+            "weekly_summary",
+            "--at",
+            "2026-07-30T08:00:00-04:00",
+        )
+        self.assertFalse(summary["send"])
+        self.assertIn("night_quiet", summary["reasons"])
 
     def test_unanswered_reminders_auto_reduce_frequency(self):
         self.init_profile()

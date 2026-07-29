@@ -151,36 +151,47 @@ def load_shift_context(data_dir: Path) -> dict | None:
         "hold_days": plan["hold_days"],
         "current_stage": stage,
         "target_sleep_time": plan["target_sleep_time"],
-        "target_wake_time": plan["target_wake_time"],
+        "target_wake_time": plan.get("target_wake_time"),
         "review_on_or_after": plan["review_on_or_after"],
         "requires_schedule_refresh_after_stage_change": True,
     }
 
 
-def schedule_items(profile: dict, shift: dict | None = None) -> list[dict]:
+def schedule_items(
+    profile: dict,
+    shift: dict | None = None,
+    enabled_override: set[str] | None = None,
+) -> list[dict]:
     allowed_start = profile["proactive_start"]
     allowed_end = profile["proactive_end"]
+    enabled = (
+        enabled_override
+        if enabled_override is not None
+        else set(profile.get("enabled_reminders", []))
+    )
     if shift:
         stage = shift["current_stage"]
+        wake_value = stage.get("wake_time") or profile.get("target_wake_time")
         day_sets = [
             (
                 "daily",
                 minutes_of_day(stage["sleep_time"]),
-                minutes_of_day(stage["wake_time"]),
+                minutes_of_day(wake_value) if wake_value else None,
                 "* * *",
             )
         ]
     else:
+        wake_value = profile.get("target_wake_time")
         day_sets = [
             (
                 "daily",
                 minutes_of_day(profile["sleep_window_start"]),
-                minutes_of_day(profile["target_wake_time"]),
+                minutes_of_day(wake_value) if wake_value else None,
                 "* * *",
             )
         ]
     if profile.get("weekend_differs") and not shift:
-        required = ["weekend_sleep_window_start", "weekend_wake_time"]
+        required = ["weekend_sleep_window_start"]
         missing = [field for field in required if not profile.get(field)]
         if missing:
             raise SleepRoutineError("Missing weekend fields: " + ", ".join(missing))
@@ -188,13 +199,17 @@ def schedule_items(profile: dict, shift: dict | None = None) -> list[dict]:
             (
                 "weekday",
                 minutes_of_day(profile["sleep_window_start"]),
-                minutes_of_day(profile["target_wake_time"]),
+                minutes_of_day(profile["target_wake_time"])
+                if profile.get("target_wake_time")
+                else None,
                 "* * 1-5",
             ),
             (
                 "weekend",
                 minutes_of_day(profile["weekend_sleep_window_start"]),
-                minutes_of_day(profile["weekend_wake_time"]),
+                minutes_of_day(profile["weekend_wake_time"])
+                if profile.get("weekend_wake_time")
+                else None,
                 "* * 0,6",
             ),
         ]
@@ -204,24 +219,22 @@ def schedule_items(profile: dict, shift: dict | None = None) -> list[dict]:
             minutes_of_day(shift["current_stage"]["wind_down_at"]) if shift else sleep_start - 60
         )
         specs.append(("wind_down", variant, wind_down_minute, days))
-        specs.append(
-            ("sleep_time" if shift else "goodnight_invite", variant, sleep_start, days)
-        )
-        specs.extend(
-            [
-                ("wake_target", variant, wake, days),
-                ("morning_checkin", variant, wake + 15, days),
-            ]
-        )
+        bedtime_kind = "sleep_time" if "sleep_time" in enabled else "goodnight_invite"
+        specs.append((bedtime_kind, variant, sleep_start, days))
+        if wake is not None:
+            specs.extend(
+                [
+                    ("wake_target", variant, wake, days),
+                    ("morning_checkin", variant, wake + 15, days),
+                ]
+            )
         if profile.get("hydration_reminder_enabled"):
             specs.append(("hydration_wrap", variant, sleep_start - 90, days))
-    summary_wake = (
-        minutes_of_day(shift["current_stage"]["wake_time"])
-        if shift
-        else minutes_of_day(profile.get("weekend_wake_time") or profile["target_wake_time"])
-    )
+    summary_reference = (
+        shift["current_stage"].get("wake_time") if shift else None
+    ) or profile.get("weekend_wake_time") or profile.get("target_wake_time")
+    summary_wake = minutes_of_day(summary_reference) if summary_reference else 12 * 60
     specs.append(("weekly_summary", "weekly", summary_wake + 30, "* * 0"))
-    enabled = set(profile.get("enabled_reminders", []))
     specs = [spec for spec in specs if spec[0] in enabled]
     items = []
     for kind, variant, minute, days in specs:
@@ -305,7 +318,6 @@ def cmd_plan(args: argparse.Namespace) -> None:
     profile = load_profile(args.data_dir)
     required = [
         "timezone",
-        "target_wake_time",
         "sleep_window_start",
         "proactive_start",
         "proactive_end",
@@ -314,7 +326,8 @@ def cmd_plan(args: argparse.Namespace) -> None:
     if missing:
         raise SleepRoutineError("Missing profile fields: " + ", ".join(missing))
     shift = load_shift_context(args.data_dir)
-    items = schedule_items(profile, shift)
+    proposed = set(args.reminder) if args.reminder else None
+    items = schedule_items(profile, shift, proposed)
     authorized = (
         profile.get("scheduling_consent") is True
         and bool(profile.get("delivery_channel"))
@@ -325,6 +338,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
         "created_jobs": [],
         "note": "Preview only. This script never executes OpenClaw or creates background jobs.",
         "sleep_shift": shift,
+        "proposal_reminders": sorted(proposed) if proposed is not None else None,
         "items": items,
         "scheduler_requests": [
             scheduler_request_for(item, profile, args.agent) for item in items
@@ -396,7 +410,13 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
         send, reasons = False, ["snoozed"]
     elif not time_is_allowed(local.strftime("%H:%M"), profile["proactive_start"], profile["proactive_end"]):
         send, reasons = False, ["outside_authorized_hours"]
-    elif args.kind in {"wind_down", "hydration_wrap", "goodnight_invite", "sleep_time"} and any(
+    elif args.kind in {
+        "wind_down",
+        "hydration_wrap",
+        "goodnight_invite",
+        "sleep_time",
+        "weekly_summary",
+    } and any(
         record.get("goodnight_at") and not record.get("morning_at") for record in load_records(args.data_dir)
     ):
         send, reasons = False, ["night_quiet"]
@@ -437,6 +457,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     plan = sub.add_parser("plan")
     plan.add_argument("--agent", default="main")
+    plan.add_argument("--reminder", action="append", choices=sorted(REMINDERS))
     plan.set_defaults(func=cmd_plan)
     register = sub.add_parser("register-job")
     register.add_argument("--schedule-id", required=True)

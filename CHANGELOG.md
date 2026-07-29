@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.1] - 2026-07-29
+
+Shorter setup and flexible sleep duration:
+
+- Reduced the normal onboarding path to timezone, rough sleep-time anchor, and storage consent.
+- Combined exact scheduling details into one final confirmation instead of asking twice.
+- Deferred wake reminders, weekend differences, hydration, intensity, and summaries until requested.
+- Made wake time independent and optional in gradual plans; no fixed sleep-duration target is required.
+- Added quick-profile defaults and reminder planning without a wake-time field.
+
 ## [0.2.0] - 2026-07-29
 
 Gradual sleep-time adjustment:

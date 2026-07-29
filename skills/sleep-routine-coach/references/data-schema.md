@@ -60,17 +60,18 @@ Deleting a day removes that record, including its audit history. Deleting all re
 | Field | Meaning |
 | --- | --- |
 | `status` | `active`, `paused`, `completed`, or `cancelled`. |
-| `current_sleep_time` / `current_wake_time` | User-reported baseline schedule. |
-| `target_sleep_time` / `target_wake_time` | Final phase target; wake time is derived to preserve sleep opportunity. |
-| `sleep_opportunity_minutes` | Baseline interval from sleep time to wake time; not measured sleep duration. |
+| `current_sleep_time` / `target_sleep_time` | Baseline and target reminder anchors for sleep time. |
+| `current_wake_time` / `target_wake_time` | Optional user-supplied reminder references; never derived from sleep time. |
+| `wake_policy` | `independent_optional`; wake reminders do not define sleep duration. |
+| `sleep_duration_target_minutes` | Null by default; the Skill does not require a fixed duration target. |
 | `direction` / `phase_shift_minutes` | Earlier/later direction and total wall-clock shift. |
 | `step_minutes` / `hold_days` | Stage size (15 or 30 minutes) and minimum nights at each stage. |
 | `current_stage_index` | Explicitly confirmed active stage; never inferred from missing reports. |
 | `stage_started_on` / `review_on_or_after` | Local dates controlling when the next review may occur. |
-| `stages` | Deterministically generated sleep, wake, wind-down, and review values. |
+| `stages` | Deterministically generated sleep-time, wind-down, and review values. |
 | `audit_history` | Plan start, hold, advance, back, pause, resume, complete, or cancel events. |
 
-Starting or changing a stage updates the profile's current sleep window and wake target with an audit entry. The plan never changes sleep opportunity silently and never creates or edits external jobs itself.
+Starting or changing a stage updates only the profile's sleep-time reminder anchor with an audit entry. It does not silently change a wake reminder, infer sleep duration, or create/edit external jobs itself.
 
 ## Time rules
 
@@ -98,9 +99,10 @@ All commands accept `--data-dir`.
 
 ```bash
 python3 {baseDir}/scripts/manage_profile.py init --consent \
-  --timezone America/Toronto --target-wake-time 07:30 \
-  --sleep-window-start 23:00 --sleep-window-end 07:30 \
-  --reminder-intensity gentle --proactive-start 19:00 --proactive-end 09:00
+  --timezone America/Toronto --sleep-window-start 23:00
+
+python3 {baseDir}/scripts/build_reminder_schedule.py plan \
+  --reminder wind_down --reminder sleep_time
 
 python3 {baseDir}/scripts/record_sleep_event.py goodnight \
   --at 2026-07-29T23:06:00-04:00
