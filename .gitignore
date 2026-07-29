@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Never commit sleep-routine-coach runtime data or exports.
+profile.json
+sleep-records.json
+reminders.json
+*.export.json
+sleep-routine-coach-data/
+.sleep-routine-coach/
+
+# ClawHub/OpenClaw local install state.
+.clawhub/
+.clawdhub/
+

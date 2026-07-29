@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sleep Routine Coach"
+  short_description: "Gentle, private sleep routine coaching"
+  default_prompt: "Use $sleep-routine-coach to help me set up a gentle, privacy-first sleep routine."
